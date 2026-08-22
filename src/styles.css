@@ -1,0 +1,85 @@
+* { box-sizing: border-box; }
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e9ebf0;
+  background: #111318;
+  font-synthesis: none;
+}
+body { margin: 0; min-width: 1120px; min-height: 100vh; background: #111318; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  height: 74px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #292d35; background: #15181e;
+}
+.brand { font-size: 20px; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 10px; }
+.brand span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: #7357ff; color: white; font-size: 13px; }
+.topbar p { margin: 2px 0 0 44px; color: #858c99; font-size: 12px; }
+.top-actions { display: flex; gap: 8px; }
+button { border: 1px solid #373c47; background: #242832; color: #eef0f4; border-radius: 8px; padding: 9px 13px; }
+button:hover { background: #2d323d; }
+button.accent { background: #7357ff; border-color: #7357ff; font-weight: 700; }
+button.accent:hover { background: #826cff; }
+button.ghost { background: transparent; }
+
+.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(520px, 1fr) 320px; }
+.sidebar { background: #16191f; overflow: auto; padding: 18px; }
+.left-panel { border-right: 1px solid #292d35; }
+.right-panel { border-left: 1px solid #292d35; }
+.sidebar section + section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #292d35; }
+h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #aeb4bf; }
+
+.dropzone { border: 1px dashed #4d5361; border-radius: 12px; padding: 22px 12px; text-align: center; background: #1b1f26; transition: .15s ease; }
+.dropzone:hover { border-color: #7357ff; background: #20242d; }
+.dropzone strong { display: block; font-size: 14px; }
+.dropzone span { display: block; margin-top: 4px; color: #7f8794; font-size: 12px; }
+.privacy { font-size: 11px; color: #69717e; margin: 8px 2px 12px; }
+.asset-list { display: grid; gap: 8px; }
+.asset-card { display: grid; grid-template-columns: 46px minmax(0,1fr) 28px; gap: 10px; align-items: center; padding: 8px; border: 1px solid #303540; border-radius: 9px; background: #1c2027; }
+.asset-thumb { width: 46px; height: 46px; border-radius: 6px; background: #ece9df; display: grid; place-items: center; overflow: hidden; }
+.asset-thumb svg { width: 86%; height: 86%; }
+.asset-card b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+.asset-card span { display: block; color: #777f8c; font-size: 11px; margin-top: 3px; }
+.icon-button { padding: 3px; border: 0; background: transparent; font-size: 20px; color: #8f96a2; }
+
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mode { text-align: left; min-height: 58px; padding: 9px; font-size: 12px; }
+.mode span { display: block; color: #727b89; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.mode.active { border-color: #7962ff; box-shadow: inset 0 0 0 1px #7962ff; background: #292540; }
+
+.stage-wrap { min-width: 0; display: flex; flex-direction: column; background: #0e1014; }
+.stage-toolbar, .statusbar { min-height: 48px; background: #15181e; border-bottom: 1px solid #292d35; display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; }
+.stage-toolbar b { font-size: 13px; }
+.stage-toolbar span { display: block; color: #747d89; font-size: 11px; margin-top: 2px; }
+.check { color: #aeb4bf; font-size: 12px; display: flex; align-items: center; gap: 7px; }
+.stage { flex: 1; min-height: 500px; padding: 24px; display: grid; place-items: center; overflow: hidden; background-image: radial-gradient(#282d35 1px, transparent 1px); background-size: 18px 18px; }
+.proof { width: min(78vh, 100%); max-height: calc(100vh - 190px); filter: drop-shadow(0 14px 40px rgba(0,0,0,.38)); background: white; }
+.tile-boundary { fill: none; stroke: #ff4f8b; stroke-width: 3; stroke-dasharray: 9 7; vector-effect: non-scaling-stroke; }
+.empty-stage { text-align: center; max-width: 420px; color: #89919e; }
+.empty-mark { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 18px; display: grid; place-items: center; background: #1d2129; border: 1px solid #333945; color: #8069ff; font-size: 28px; }
+.empty-stage h1 { margin: 0; color: #e5e8ed; font-size: 24px; }
+.empty-stage p { line-height: 1.55; font-size: 13px; }
+.statusbar { min-height: 34px; border-top: 1px solid #292d35; border-bottom: 0; color: #6f7885; font-size: 10px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.two-col label, .color-row { color: #8d95a2; font-size: 11px; }
+.two-col span { display: block; margin-bottom: 5px; }
+input[type="number"] { width: 100%; background: #20242c; color: #edf0f5; border: 1px solid #353a45; border-radius: 7px; padding: 8px; }
+.color-row { display: grid; grid-template-columns: 1fr 42px 76px; align-items: center; gap: 8px; margin-top: 10px; }
+.color-row input { width: 42px; height: 32px; border: 0; background: none; padding: 0; }
+.color-row code { color: #969eaa; font-size: 10px; }
+.control { display: block; margin: 14px 0; }
+.control span { display: flex; justify-content: space-between; color: #8c94a0; font-size: 11px; margin-bottom: 6px; }
+.control b { color: #dce0e7; font-weight: 600; }
+input[type="range"] { width: 100%; accent-color: #7357ff; }
+.batik-note { background: linear-gradient(145deg, rgba(115,87,255,.10), rgba(255,79,139,.05)); border: 1px solid #342f4b !important; border-radius: 12px; padding: 14px !important; }
+.batik-note p { color: #8f97a4; font-size: 11px; line-height: 1.55; }
+.batik-note b { color: #d8dce4; }
+
+@media (max-width: 1250px) {
+  body { min-width: 980px; }
+  .workspace { grid-template-columns: 260px minmax(460px,1fr) 280px; }
+}
