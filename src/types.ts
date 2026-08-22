@@ -8,6 +8,8 @@ export type RepeatMode =
   | 'ceplok'
   | 'kawung'
 
+export type WorkspaceMode = 'auto' | 'builder'
+export type BuilderView = 'edit' | 'proof'
 export type BrickOffset = '1/4' | '1/3' | '1/2' | '2/3' | '3/4'
 export type OverlapX = 'left' | 'right'
 export type OverlapY = 'top' | 'bottom'
@@ -69,6 +71,19 @@ export type PatternInstance = {
   flipX?: boolean
   flipY?: boolean
   order?: number
+}
+
+export type TileCellPlacement = {
+  key: string
+  row: number
+  col: number
+  assetId: string
+  rotation: number
+  scale: number
+  offsetX: number
+  offsetY: number
+  flipX: boolean
+  flipY: boolean
 }
 
 export type PatternGeometry = {
