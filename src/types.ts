@@ -117,6 +117,8 @@ export type TileCellPlacement = {
   offsetY: number
   flipX: boolean
   flipY: boolean
+  spanCols?: number
+  spanRows?: number
 }
 
 export type PatternGeometry = {
