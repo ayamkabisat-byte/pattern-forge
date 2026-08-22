@@ -20,6 +20,29 @@ export type OverlapY = 'top' | 'bottom'
 export type AlignX = 'left' | 'center' | 'right'
 export type AlignY = 'top' | 'middle' | 'bottom'
 
+export type TextScript = 'latin' | 'devanagari' | 'arabic' | 'zh-hans' | 'korean' | 'japanese'
+export type TextDirection = 'ltr' | 'rtl'
+export type TextAlign = 'left' | 'center' | 'right'
+
+export type TextLayer = {
+  id: string
+  name: string
+  text: string
+  script: TextScript
+  fontFamily: string
+  fontSize: number
+  fontWeight: number
+  fill: string
+  x: number
+  y: number
+  rotation: number
+  letterSpacing: number
+  lineHeight: number
+  align: TextAlign
+  direction: TextDirection
+  opacity: number
+}
+
 export type SvgAsset = {
   id: string
   name: string
