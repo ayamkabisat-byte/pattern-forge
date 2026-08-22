@@ -1,3 +1,4 @@
+import { blockBounds, findPlacementCoveringCell, spanCols, spanRows } from '../engine/builder'
 import type { PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TileCellPlacement } from '../types'
 
 type Props = {
@@ -24,7 +25,6 @@ function Instance({ item, asset, dx = 0, dy = 0, opacity = 1 }: { item: PatternI
 }
 
 export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, erasing = false, wrapEdges = true, onCellClick }: Props) {
-  const byKey = new Map(placements.map((item) => [item.key, item]))
   const instanceByKey = new Map(instances.map((item) => [item.key, item]))
   const originX = geometry.originX ?? 0
   const originY = geometry.originY ?? 0
@@ -56,40 +56,52 @@ export default function TileComposer({ assets, placements, instances, geometry, 
 
       {Array.from({ length: geometry.rows }).flatMap((_, row) =>
         Array.from({ length: geometry.columns }).map((__, col) => {
-          const key = `cell-${row}-${col}`
-          const occupied = byKey.has(key) && instanceByKey.has(key)
-          const selected = selectedKey === key
+          const cell = `cell-${row}-${col}`
+          const owner = findPlacementCoveringCell(placements, row, col)
+          const occupied = !!owner && instanceByKey.has(owner.key)
+          const selected = !!owner && selectedKey === owner.key
+          const coveredChild = !!owner && owner.key !== cell
           const x = originX + col * geometry.stepX
           const y = originY + row * geometry.stepY
           return (
-            <g key={key} className="builder-cell" onClick={() => onCellClick(row, col)}>
+            <g key={cell} className="builder-cell" onClick={() => onCellClick(row, col)}>
               <rect x={x} y={y} width={geometry.cellWidth} height={geometry.cellHeight} className="builder-cell-guide" pointerEvents="none" />
               <rect
                 x={x}
                 y={y}
-                width={Math.max(8, geometry.stepX)}
-                height={Math.max(8, geometry.stepY)}
-                className={`${selected ? 'builder-cell-hit selected' : 'builder-cell-hit'} ${occupied ? 'occupied' : ''} ${erasing ? 'erase' : ''}`}
+                width={Math.max(8, geometry.cellWidth)}
+                height={Math.max(8, geometry.cellHeight)}
+                className={`${selected ? 'builder-cell-hit selected' : 'builder-cell-hit'} ${occupied ? 'occupied' : ''} ${coveredChild ? 'span-child' : ''} ${erasing ? 'erase' : ''}`}
               />
-              {selected && (
-                <rect
-                  x={x + 3}
-                  y={y + 3}
-                  width={Math.max(1, geometry.cellWidth - 6)}
-                  height={Math.max(1, geometry.cellHeight - 6)}
-                  className="builder-selected-ring"
-                  pointerEvents="none"
-                />
-              )}
             </g>
           )
         }),
       )}
 
+      {placements.map((item) => {
+        if (!instanceByKey.has(item.key)) return null
+        const cols = spanCols(item)
+        const rows = spanRows(item)
+        if (cols === 1 && rows === 1 && selectedKey !== item.key) return null
+        const bounds = blockBounds(item, geometry)
+        const selected = selectedKey === item.key
+        return (
+          <g key={`span-${item.key}`} className={`builder-span ${selected ? 'selected' : ''}`} pointerEvents="none">
+            <rect x={bounds.x + 2} y={bounds.y + 2} width={Math.max(1, bounds.width - 4)} height={Math.max(1, bounds.height - 4)} className="builder-span-outline" />
+            {(cols > 1 || rows > 1) && (
+              <g className="builder-span-badge">
+                <rect x={bounds.x + 8} y={bounds.y + 8} width="48" height="22" rx="6" />
+                <text x={bounds.x + 32} y={bounds.y + 23} textAnchor="middle">{cols}×{rows}</text>
+              </g>
+            )}
+          </g>
+        )
+      })}
+
       {(activeAssetId || erasing) && (
         <g className="builder-hint" pointerEvents="none">
-          <rect x="10" y="10" width="190" height="30" rx="7" />
-          <text x="22" y="30">{erasing ? 'Eraser: click a canvas cell' : 'Paint: click a canvas cell'}</text>
+          <rect x="10" y="10" width="216" height="30" rx="7" />
+          <text x="22" y="30">{erasing ? 'Eraser: click any cell in a block' : 'Paint: click a canvas cell'}</text>
         </g>
       )}
     </svg>
