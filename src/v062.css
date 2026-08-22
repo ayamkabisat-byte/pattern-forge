@@ -1,0 +1,88 @@
+.span-control {
+  margin: 12px 0 14px;
+  padding: 11px;
+  border: 1px solid #353b47;
+  border-radius: 10px;
+  background: #191d24;
+}
+
+.span-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: #8f98a5;
+}
+
+.span-heading b {
+  color: #eceef2;
+  font-size: 12px;
+}
+
+.span-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.span-buttons button {
+  padding: 8px 6px;
+  font-size: 10px;
+  background: #20252e;
+}
+
+.span-buttons button.active {
+  border-color: #7357ff;
+  background: #2d2850;
+  color: #fff;
+}
+
+.span-buttons button:disabled {
+  opacity: .32;
+  cursor: not-allowed;
+}
+
+.span-control small {
+  display: block;
+  margin-top: 8px;
+  color: #727c89;
+  line-height: 1.45;
+  font-size: 9px;
+}
+
+.builder-cell-hit.span-child {
+  fill: rgba(115, 87, 255, .035);
+}
+
+.builder-cell-hit.span-child:hover {
+  fill: rgba(115, 87, 255, .11);
+}
+
+.builder-span-outline {
+  fill: none;
+  stroke: rgba(115, 87, 255, .72);
+  stroke-width: 2;
+  stroke-dasharray: 7 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.builder-span.selected .builder-span-outline {
+  stroke: #ff4f9a;
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+.builder-span-badge rect {
+  fill: rgba(20, 22, 29, .86);
+  stroke: rgba(115, 87, 255, .7);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.builder-span-badge text {
+  fill: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  dominant-baseline: middle;
+}
