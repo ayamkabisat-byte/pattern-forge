@@ -9,8 +9,10 @@ export type RepeatMode =
   | 'kawung'
 
 export type WorkspaceMode = 'auto' | 'builder'
-export type BuilderView = 'edit' | 'proof'
+export type BuilderView = 'edit' | 'proof' | 'canvas'
 export type BuilderTool = 'paint' | 'erase'
+export type BuilderTileMode = 'grid' | 'custom'
+export type CanvasMode = 'full-bleed' | 'fit-full-tiles' | 'single-tile' | 'proof'
 export type BrickOffset = '1/4' | '1/3' | '1/2' | '2/3' | '3/4'
 export type OverlapX = 'left' | 'right'
 export type OverlapY = 'top' | 'bottom'
@@ -61,10 +63,32 @@ export type PatternSettings = {
   showSwatchBounds: boolean
 }
 
+export type BuilderTileSettings = {
+  mode: BuilderTileMode
+  width: number
+  height: number
+}
+
 export type ExportSettings = {
   width: number
   height: number
   tileScale: number
+  canvasMode?: CanvasMode
+  proofCopies?: number
+}
+
+export type CanvasLayout = {
+  mode: CanvasMode
+  canvasWidth: number
+  canvasHeight: number
+  tileWidth: number
+  tileHeight: number
+  columns: number
+  rows: number
+  originX: number
+  originY: number
+  patternWidth: number
+  patternHeight: number
 }
 
 export type PatternInstance = {
