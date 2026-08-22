@@ -26,6 +26,8 @@ function Instance({ item, asset, dx = 0, dy = 0, opacity = 1 }: { item: PatternI
 export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, erasing = false, wrapEdges = true, onCellClick }: Props) {
   const byKey = new Map(placements.map((item) => [item.key, item]))
   const instanceByKey = new Map(instances.map((item) => [item.key, item]))
+  const originX = geometry.originX ?? 0
+  const originY = geometry.originY ?? 0
   const shifts = [
     [-geometry.tileWidth, 0], [geometry.tileWidth, 0],
     [0, -geometry.tileHeight], [0, geometry.tileHeight],
@@ -57,8 +59,8 @@ export default function TileComposer({ assets, placements, instances, geometry, 
           const key = `cell-${row}-${col}`
           const occupied = byKey.has(key) && instanceByKey.has(key)
           const selected = selectedKey === key
-          const x = col * geometry.stepX
-          const y = row * geometry.stepY
+          const x = originX + col * geometry.stepX
+          const y = originY + row * geometry.stepY
           return (
             <g key={key} className="builder-cell" onClick={() => onCellClick(row, col)}>
               <rect x={x} y={y} width={geometry.cellWidth} height={geometry.cellHeight} className="builder-cell-guide" pointerEvents="none" />
