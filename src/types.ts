@@ -10,6 +10,7 @@ export type RepeatMode =
 
 export type WorkspaceMode = 'auto' | 'builder'
 export type BuilderView = 'edit' | 'proof'
+export type BuilderTool = 'paint' | 'erase'
 export type BrickOffset = '1/4' | '1/3' | '1/2' | '2/3' | '3/4'
 export type OverlapX = 'left' | 'right'
 export type OverlapY = 'top' | 'bottom'
@@ -58,6 +59,12 @@ export type PatternSettings = {
   dimCopiesPercent: number
   showBoundary: boolean
   showSwatchBounds: boolean
+}
+
+export type ExportSettings = {
+  width: number
+  height: number
+  tileScale: number
 }
 
 export type PatternInstance = {
