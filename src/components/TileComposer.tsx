@@ -8,6 +8,7 @@ type Props = {
   settings: PatternSettings
   selectedKey: string | null
   activeAssetId: string | null
+  erasing?: boolean
   onCellClick: (row: number, col: number) => void
 }
 
@@ -21,7 +22,7 @@ function Instance({ item, asset, dx = 0, dy = 0, opacity = 1 }: { item: PatternI
   )
 }
 
-export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, onCellClick }: Props) {
+export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, erasing = false, onCellClick }: Props) {
   const byKey = new Map(placements.map((item) => [item.key, item]))
   const instanceByKey = new Map(instances.map((item) => [item.key, item]))
   const shifts = [
@@ -55,19 +56,22 @@ export default function TileComposer({ assets, placements, instances, geometry, 
           const key = `cell-${row}-${col}`
           const occupied = byKey.has(key) && instanceByKey.has(key)
           const selected = selectedKey === key
+          const x = col * geometry.stepX
+          const y = row * geometry.stepY
           return (
             <g key={key} className="builder-cell" onClick={() => onCellClick(row, col)}>
+              <rect x={x} y={y} width={geometry.cellWidth} height={geometry.cellHeight} className="builder-cell-guide" pointerEvents="none" />
               <rect
-                x={col * geometry.stepX}
-                y={row * geometry.stepY}
-                width={geometry.cellWidth}
-                height={geometry.cellHeight}
-                className={`${selected ? 'builder-cell-hit selected' : 'builder-cell-hit'} ${occupied ? 'occupied' : ''}`}
+                x={x}
+                y={y}
+                width={Math.max(8, geometry.stepX)}
+                height={Math.max(8, geometry.stepY)}
+                className={`${selected ? 'builder-cell-hit selected' : 'builder-cell-hit'} ${occupied ? 'occupied' : ''} ${erasing ? 'erase' : ''}`}
               />
               {selected && (
                 <rect
-                  x={col * geometry.stepX + 3}
-                  y={row * geometry.stepY + 3}
+                  x={x + 3}
+                  y={y + 3}
                   width={Math.max(1, geometry.cellWidth - 6)}
                   height={Math.max(1, geometry.cellHeight - 6)}
                   className="builder-selected-ring"
@@ -79,10 +83,10 @@ export default function TileComposer({ assets, placements, instances, geometry, 
         }),
       )}
 
-      {activeAssetId && (
+      {(activeAssetId || erasing) && (
         <g className="builder-hint" pointerEvents="none">
-          <rect x="10" y="10" width="148" height="30" rx="7" />
-          <text x="22" y="30">Click a cell to paint motif</text>
+          <rect x="10" y="10" width="170" height="30" rx="7" />
+          <text x="22" y="30">{erasing ? 'Eraser: click a cell' : 'Paint: click a cell'}</text>
         </g>
       )}
     </svg>
