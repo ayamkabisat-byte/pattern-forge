@@ -12,6 +12,7 @@ export type WorkspaceMode = 'auto' | 'builder'
 export type BuilderView = 'edit' | 'proof' | 'canvas'
 export type BuilderTool = 'paint' | 'erase'
 export type BuilderTileMode = 'grid' | 'custom'
+export type BuilderCellShape = 'square' | 'stretch'
 export type CanvasMode = 'full-bleed' | 'fit-full-tiles' | 'single-tile' | 'proof'
 export type BrickOffset = '1/4' | '1/3' | '1/2' | '2/3' | '3/4'
 export type OverlapX = 'left' | 'right'
@@ -67,6 +68,7 @@ export type BuilderTileSettings = {
   mode: BuilderTileMode
   width: number
   height: number
+  cellShape?: BuilderCellShape
 }
 
 export type ExportSettings = {
@@ -126,4 +128,6 @@ export type PatternGeometry = {
   tileHeight: number
   rows: number
   columns: number
+  originX?: number
+  originY?: number
 }
