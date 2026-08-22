@@ -1,5 +1,6 @@
+import TextLayerSvg from './TextLayerSvg'
 import { blockBounds, findPlacementCoveringCell, spanCols, spanRows } from '../engine/builder'
-import type { PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TileCellPlacement } from '../types'
+import type { PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TextLayer, TileCellPlacement } from '../types'
 
 type Props = {
   assets: SvgAsset[]
@@ -11,6 +12,9 @@ type Props = {
   activeAssetId: string | null
   erasing?: boolean
   wrapEdges?: boolean
+  textLayers?: TextLayer[]
+  selectedTextId?: string | null
+  onTextSelect?: (id: string) => void
   onCellClick: (row: number, col: number) => void
 }
 
@@ -24,7 +28,21 @@ function Instance({ item, asset, dx = 0, dy = 0, opacity = 1 }: { item: PatternI
   )
 }
 
-export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, erasing = false, wrapEdges = true, onCellClick }: Props) {
+export default function TileComposer({
+  assets,
+  placements,
+  instances,
+  geometry,
+  settings,
+  selectedKey,
+  activeAssetId,
+  erasing = false,
+  wrapEdges = true,
+  textLayers = [],
+  selectedTextId = null,
+  onTextSelect,
+  onCellClick,
+}: Props) {
   const instanceByKey = new Map(instances.map((item) => [item.key, item]))
   const originX = geometry.originX ?? 0
   const originY = geometry.originY ?? 0
@@ -98,7 +116,19 @@ export default function TileComposer({ assets, placements, instances, geometry, 
         )
       })}
 
-      {(activeAssetId || erasing) && (
+      <g clipPath="url(#pf-builder-clip)" className="pf-text-layer-group">
+        {textLayers.map((layer) => (
+          <TextLayerSvg
+            key={layer.id}
+            layer={layer}
+            selected={selectedTextId === layer.id}
+            interactive
+            onSelect={onTextSelect}
+          />
+        ))}
+      </g>
+
+      {(activeAssetId || erasing) && !selectedTextId && (
         <g className="builder-hint" pointerEvents="none">
           <rect x="10" y="10" width="216" height="30" rx="7" />
           <text x="22" y="30">{erasing ? 'Eraser: click any cell in a block' : 'Paint: click a canvas cell'}</text>
