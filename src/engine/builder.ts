@@ -17,10 +17,17 @@ function dims(asset: SvgAsset, motifSize: number) {
     : { width: motifSize * ratio, height: motifSize }
 }
 
-function fittedDims(asset: SvgAsset, s: PatternSettings, g: PatternGeometry, placementScale: number) {
-  const base = dims(asset, s.motifSize)
+function fittedDims(
+  asset: SvgAsset,
+  s: PatternSettings,
+  g: PatternGeometry,
+  placementScale: number,
+  customTile = false,
+) {
   const availableWidth = Math.max(1, g.cellWidth - s.paddingX * 2)
   const availableHeight = Math.max(1, g.cellHeight - s.paddingY * 2)
+  const autoSize = Math.max(8, Math.min(availableWidth, availableHeight) * 0.86)
+  const base = dims(asset, customTile ? autoSize : s.motifSize)
   const fit = Math.min(1, availableWidth / base.width, availableHeight / base.height)
   const manual = Math.max(0.05, placementScale / 100)
   return {
@@ -119,11 +126,12 @@ export function generateBuilderPattern(
   const geometry = builderGeometry(assets, s, tile)
   const assetIndexById = new Map(assets.map((asset, index) => [asset.id, index]))
   const clean = normalizePlacements(placements, geometry, assets)
+  const customTile = tile?.mode === 'custom'
 
   const instances: PatternInstance[] = clean.map((placement, order) => {
     const assetIndex = assetIndexById.get(placement.assetId) ?? 0
     const asset = assets[assetIndex]
-    const d = fittedDims(asset, s, geometry, placement.scale)
+    const d = fittedDims(asset, s, geometry, placement.scale, customTile)
     const cellX = placement.col * geometry.stepX
     const cellY = placement.row * geometry.stepY
     return {
