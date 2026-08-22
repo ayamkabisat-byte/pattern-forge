@@ -1,5 +1,5 @@
 import { patternGeometry } from './pattern'
-import type { PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TileCellPlacement } from '../types'
+import type { BuilderTileSettings, PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TileCellPlacement } from '../types'
 
 function mulberry32(seed: number) {
   return () => {
@@ -88,12 +88,35 @@ export function fillRandom(assets: SvgAsset[], g: PatternGeometry, seed: number)
   return out
 }
 
+export function builderGeometry(
+  assets: SvgAsset[],
+  s: PatternSettings,
+  tile?: BuilderTileSettings,
+): PatternGeometry {
+  const gridGeometry = patternGeometry('grid', assets, { ...s, snapTileToGrid: true })
+  if (!tile || tile.mode !== 'custom') return gridGeometry
+
+  const columns = Math.max(1, Math.round(s.columns))
+  const rows = Math.max(1, Math.round(s.rows))
+  const tileWidth = Math.max(64, tile.width)
+  const tileHeight = Math.max(64, tile.height)
+  const stepX = tileWidth / columns
+  const stepY = tileHeight / rows
+
+  // A negative gap intentionally makes the visual cell overlap its step.
+  const cellWidth = Math.max(8, stepX - s.hSpacing)
+  const cellHeight = Math.max(8, stepY - s.vSpacing)
+
+  return { cellWidth, cellHeight, stepX, stepY, tileWidth, tileHeight, rows, columns }
+}
+
 export function generateBuilderPattern(
   placements: TileCellPlacement[],
   assets: SvgAsset[],
   s: PatternSettings,
+  tile?: BuilderTileSettings,
 ): { geometry: PatternGeometry; instances: PatternInstance[] } {
-  const geometry = patternGeometry('grid', assets, { ...s, snapTileToGrid: true })
+  const geometry = builderGeometry(assets, s, tile)
   const assetIndexById = new Map(assets.map((asset, index) => [asset.id, index]))
   const clean = normalizePlacements(placements, geometry, assets)
 
@@ -106,8 +129,8 @@ export function generateBuilderPattern(
     return {
       key: placement.key,
       assetIndex,
-      x: cellX + geometry.cellWidth / 2 + placement.offsetX,
-      y: cellY + geometry.cellHeight / 2 + placement.offsetY,
+      x: cellX + geometry.stepX / 2 + placement.offsetX,
+      y: cellY + geometry.stepY / 2 + placement.offsetY,
       width: d.width,
       height: d.height,
       rotation: placement.rotation,
