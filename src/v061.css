@@ -1,0 +1,9 @@
+.direct-canvas-stage { padding: 18px; }
+.direct-canvas-stage .tile-editor { width: min(100%, 1180px); max-width: 100%; max-height: calc(100vh - 180px); height: auto; background: white; }
+.final-first { border: 1px solid #4c426c !important; border-radius: 12px; padding: 14px !important; background: linear-gradient(145deg, rgba(115,87,255,.10), rgba(65,199,255,.035)); }
+.final-first h2 { color: #d9d4ff; }
+.final-first .canvas-summary { margin-top: 12px; }
+
+@media (max-width: 1250px) {
+  .direct-canvas-stage .tile-editor { width: min(100%, 980px); }
+}
