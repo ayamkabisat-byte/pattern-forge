@@ -20,15 +20,16 @@ function dims(asset: SvgAsset, motifSize: number) {
 function fittedDims(
   asset: SvgAsset,
   s: PatternSettings,
-  g: PatternGeometry,
+  availableWidth: number,
+  availableHeight: number,
   placementScale: number,
   customTile = false,
 ) {
-  const availableWidth = Math.max(1, g.cellWidth - s.paddingX * 2)
-  const availableHeight = Math.max(1, g.cellHeight - s.paddingY * 2)
-  const autoSize = Math.max(8, Math.min(availableWidth, availableHeight) * 0.96)
+  const safeWidth = Math.max(1, availableWidth - s.paddingX * 2)
+  const safeHeight = Math.max(1, availableHeight - s.paddingY * 2)
+  const autoSize = Math.max(8, Math.min(safeWidth, safeHeight) * 0.96)
   const base = dims(asset, customTile ? autoSize : s.motifSize)
-  const fit = Math.min(1, availableWidth / base.width, availableHeight / base.height)
+  const fit = Math.min(1, safeWidth / base.width, safeHeight / base.height)
   const manual = Math.max(0.05, placementScale / 100)
   return {
     width: base.width * fit * manual,
@@ -38,6 +39,64 @@ function fittedDims(
 
 export function cellKey(row: number, col: number) {
   return `cell-${row}-${col}`
+}
+
+export function spanCols(item: TileCellPlacement) {
+  return Math.max(1, Math.round(item.spanCols ?? 1))
+}
+
+export function spanRows(item: TileCellPlacement) {
+  return Math.max(1, Math.round(item.spanRows ?? 1))
+}
+
+export function placementCoversCell(item: TileCellPlacement, row: number, col: number) {
+  return row >= item.row &&
+    row < item.row + spanRows(item) &&
+    col >= item.col &&
+    col < item.col + spanCols(item)
+}
+
+export function findPlacementCoveringCell(placements: TileCellPlacement[], row: number, col: number) {
+  return placements.find((item) => placementCoversCell(item, row, col)) ?? null
+}
+
+export function spanFitsGrid(row: number, col: number, cols: number, rows: number, g: PatternGeometry) {
+  return row >= 0 && col >= 0 && row + rows <= g.rows && col + cols <= g.columns
+}
+
+function placementsOverlap(a: TileCellPlacement, b: TileCellPlacement) {
+  const aRight = a.col + spanCols(a)
+  const aBottom = a.row + spanRows(a)
+  const bRight = b.col + spanCols(b)
+  const bBottom = b.row + spanRows(b)
+  return a.col < bRight && aRight > b.col && a.row < bBottom && aBottom > b.row
+}
+
+export function canUseSpan(
+  placements: TileCellPlacement[],
+  targetKey: string,
+  row: number,
+  col: number,
+  cols: number,
+  rows: number,
+  g: PatternGeometry,
+) {
+  if (!spanFitsGrid(row, col, cols, rows, g)) return false
+  const candidate: TileCellPlacement = {
+    key: targetKey,
+    row,
+    col,
+    assetId: '',
+    rotation: 0,
+    scale: 100,
+    offsetX: 0,
+    offsetY: 0,
+    flipX: false,
+    flipY: false,
+    spanCols: cols,
+    spanRows: rows,
+  }
+  return !placements.some((item) => item.key !== targetKey && placementsOverlap(candidate, item))
 }
 
 export function createPlacement(row: number, col: number, assetId: string): TileCellPlacement {
@@ -52,18 +111,28 @@ export function createPlacement(row: number, col: number, assetId: string): Tile
     offsetY: 0,
     flipX: false,
     flipY: false,
+    spanCols: 1,
+    spanRows: 1,
   }
 }
 
 export function normalizePlacements(placements: TileCellPlacement[], g: PatternGeometry, assets: SvgAsset[]) {
   const validAssets = new Set(assets.map((asset) => asset.id))
-  return placements.filter((item) =>
-    item.row >= 0 &&
-    item.col >= 0 &&
-    item.row < g.rows &&
-    item.col < g.columns &&
-    validAssets.has(item.assetId),
-  )
+  const accepted: TileCellPlacement[] = []
+
+  for (const raw of placements) {
+    const item: TileCellPlacement = {
+      ...raw,
+      spanCols: spanCols(raw),
+      spanRows: spanRows(raw),
+    }
+    if (!validAssets.has(item.assetId)) continue
+    if (!spanFitsGrid(item.row, item.col, spanCols(item), spanRows(item), g)) continue
+    if (accepted.some((other) => placementsOverlap(item, other))) continue
+    accepted.push(item)
+  }
+
+  return accepted
 }
 
 export function fillSequential(assets: SvgAsset[], g: PatternGeometry): TileCellPlacement[] {
@@ -110,8 +179,6 @@ export function builderGeometry(
   const cellShape = tile.cellShape ?? 'square'
 
   if (cellShape === 'stretch') {
-    // Stretch mode always fills the artboard. Gap is a real inter-cell gap/overlap,
-    // while cell size compensates so the outside edges still reach the canvas edges.
     const cellWidth = Math.max(8, (tileWidth - (columns - 1) * s.hSpacing) / columns)
     const cellHeight = Math.max(8, (tileHeight - (rows - 1) * s.vSpacing) / rows)
     const stepX = Math.max(4, cellWidth + s.hSpacing)
@@ -119,9 +186,6 @@ export function builderGeometry(
     return { cellWidth, cellHeight, stepX, stepY, tileWidth, tileHeight, rows, columns, originX: 0, originY: 0 }
   }
 
-  // Square mode preserves each motif module as a square. This is usually what
-  // geometric pattern artwork expects. The grid is centered on the final canvas.
-  // Positive gap separates cells; negative gap interlocks/overlaps them.
   const fitByWidth = (tileWidth - (columns - 1) * s.hSpacing) / columns
   const fitByHeight = (tileHeight - (rows - 1) * s.vSpacing) / rows
   const cellSize = Math.max(8, Math.min(fitByWidth, fitByHeight))
@@ -146,6 +210,18 @@ export function builderGeometry(
   }
 }
 
+export function blockBounds(item: TileCellPlacement, g: PatternGeometry) {
+  const cols = spanCols(item)
+  const rows = spanRows(item)
+  const originX = g.originX ?? 0
+  const originY = g.originY ?? 0
+  const x = originX + item.col * g.stepX
+  const y = originY + item.row * g.stepY
+  const width = g.cellWidth + Math.max(0, cols - 1) * g.stepX
+  const height = g.cellHeight + Math.max(0, rows - 1) * g.stepY
+  return { x, y, width, height }
+}
+
 export function generateBuilderPattern(
   placements: TileCellPlacement[],
   assets: SvgAsset[],
@@ -156,20 +232,17 @@ export function generateBuilderPattern(
   const assetIndexById = new Map(assets.map((asset, index) => [asset.id, index]))
   const clean = normalizePlacements(placements, geometry, assets)
   const customTile = tile?.mode === 'custom'
-  const originX = geometry.originX ?? 0
-  const originY = geometry.originY ?? 0
 
   const instances: PatternInstance[] = clean.map((placement, order) => {
     const assetIndex = assetIndexById.get(placement.assetId) ?? 0
     const asset = assets[assetIndex]
-    const d = fittedDims(asset, s, geometry, placement.scale, customTile)
-    const cellX = originX + placement.col * geometry.stepX
-    const cellY = originY + placement.row * geometry.stepY
+    const bounds = blockBounds(placement, geometry)
+    const d = fittedDims(asset, s, bounds.width, bounds.height, placement.scale, customTile)
     return {
       key: placement.key,
       assetIndex,
-      x: cellX + geometry.cellWidth / 2 + placement.offsetX,
-      y: cellY + geometry.cellHeight / 2 + placement.offsetY,
+      x: bounds.x + bounds.width / 2 + placement.offsetX,
+      y: bounds.y + bounds.height / 2 + placement.offsetY,
       width: d.width,
       height: d.height,
       rotation: placement.rotation,
