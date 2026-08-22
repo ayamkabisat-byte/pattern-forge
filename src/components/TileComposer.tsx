@@ -9,6 +9,7 @@ type Props = {
   selectedKey: string | null
   activeAssetId: string | null
   erasing?: boolean
+  wrapEdges?: boolean
   onCellClick: (row: number, col: number) => void
 }
 
@@ -22,7 +23,7 @@ function Instance({ item, asset, dx = 0, dy = 0, opacity = 1 }: { item: PatternI
   )
 }
 
-export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, erasing = false, onCellClick }: Props) {
+export default function TileComposer({ assets, placements, instances, geometry, settings, selectedKey, activeAssetId, erasing = false, wrapEdges = true, onCellClick }: Props) {
   const byKey = new Map(placements.map((item) => [item.key, item]))
   const instanceByKey = new Map(instances.map((item) => [item.key, item]))
   const shifts = [
@@ -33,14 +34,14 @@ export default function TileComposer({ assets, placements, instances, geometry, 
   ]
 
   return (
-    <svg className="tile-editor" viewBox={`0 0 ${geometry.tileWidth} ${geometry.tileHeight}`} aria-label="Modular master tile editor">
+    <svg className="tile-editor" viewBox={`0 0 ${geometry.tileWidth} ${geometry.tileHeight}`} aria-label="Final canvas composer">
       <defs>
         <clipPath id="pf-builder-clip"><rect width={geometry.tileWidth} height={geometry.tileHeight} /></clipPath>
       </defs>
       <rect width={geometry.tileWidth} height={geometry.tileHeight} fill={settings.background} />
 
       <g clipPath="url(#pf-builder-clip)">
-        {instances.flatMap((item) => {
+        {wrapEdges && instances.flatMap((item) => {
           const asset = assets[item.assetIndex]
           if (!asset) return []
           return shifts.map(([dx, dy]) => <Instance key={`ghost-${item.key}-${dx}-${dy}`} item={item} asset={asset} dx={dx} dy={dy} opacity={0.24} />)
@@ -85,8 +86,8 @@ export default function TileComposer({ assets, placements, instances, geometry, 
 
       {(activeAssetId || erasing) && (
         <g className="builder-hint" pointerEvents="none">
-          <rect x="10" y="10" width="170" height="30" rx="7" />
-          <text x="22" y="30">{erasing ? 'Eraser: click a cell' : 'Paint: click a cell'}</text>
+          <rect x="10" y="10" width="190" height="30" rx="7" />
+          <text x="22" y="30">{erasing ? 'Eraser: click a canvas cell' : 'Paint: click a canvas cell'}</text>
         </g>
       )}
     </svg>
