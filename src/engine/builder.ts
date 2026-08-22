@@ -26,7 +26,7 @@ function fittedDims(
 ) {
   const availableWidth = Math.max(1, g.cellWidth - s.paddingX * 2)
   const availableHeight = Math.max(1, g.cellHeight - s.paddingY * 2)
-  const autoSize = Math.max(8, Math.min(availableWidth, availableHeight) * 0.86)
+  const autoSize = Math.max(8, Math.min(availableWidth, availableHeight) * 0.96)
   const base = dims(asset, customTile ? autoSize : s.motifSize)
   const fit = Math.min(1, availableWidth / base.width, availableHeight / base.height)
   const manual = Math.max(0.05, placementScale / 100)
@@ -107,14 +107,43 @@ export function builderGeometry(
   const rows = Math.max(1, Math.round(s.rows))
   const tileWidth = Math.max(64, tile.width)
   const tileHeight = Math.max(64, tile.height)
-  const stepX = tileWidth / columns
-  const stepY = tileHeight / rows
+  const cellShape = tile.cellShape ?? 'square'
 
-  // A negative gap intentionally makes the visual cell overlap its step.
-  const cellWidth = Math.max(8, stepX - s.hSpacing)
-  const cellHeight = Math.max(8, stepY - s.vSpacing)
+  if (cellShape === 'stretch') {
+    // Stretch mode always fills the artboard. Gap is a real inter-cell gap/overlap,
+    // while cell size compensates so the outside edges still reach the canvas edges.
+    const cellWidth = Math.max(8, (tileWidth - (columns - 1) * s.hSpacing) / columns)
+    const cellHeight = Math.max(8, (tileHeight - (rows - 1) * s.vSpacing) / rows)
+    const stepX = Math.max(4, cellWidth + s.hSpacing)
+    const stepY = Math.max(4, cellHeight + s.vSpacing)
+    return { cellWidth, cellHeight, stepX, stepY, tileWidth, tileHeight, rows, columns, originX: 0, originY: 0 }
+  }
 
-  return { cellWidth, cellHeight, stepX, stepY, tileWidth, tileHeight, rows, columns }
+  // Square mode preserves each motif module as a square. This is usually what
+  // geometric pattern artwork expects. The grid is centered on the final canvas.
+  // Positive gap separates cells; negative gap interlocks/overlaps them.
+  const fitByWidth = (tileWidth - (columns - 1) * s.hSpacing) / columns
+  const fitByHeight = (tileHeight - (rows - 1) * s.vSpacing) / rows
+  const cellSize = Math.max(8, Math.min(fitByWidth, fitByHeight))
+  const stepX = Math.max(4, cellSize + s.hSpacing)
+  const stepY = Math.max(4, cellSize + s.vSpacing)
+  const patternWidth = cellSize * columns + s.hSpacing * Math.max(0, columns - 1)
+  const patternHeight = cellSize * rows + s.vSpacing * Math.max(0, rows - 1)
+  const originX = (tileWidth - patternWidth) / 2
+  const originY = (tileHeight - patternHeight) / 2
+
+  return {
+    cellWidth: cellSize,
+    cellHeight: cellSize,
+    stepX,
+    stepY,
+    tileWidth,
+    tileHeight,
+    rows,
+    columns,
+    originX,
+    originY,
+  }
 }
 
 export function generateBuilderPattern(
@@ -127,18 +156,20 @@ export function generateBuilderPattern(
   const assetIndexById = new Map(assets.map((asset, index) => [asset.id, index]))
   const clean = normalizePlacements(placements, geometry, assets)
   const customTile = tile?.mode === 'custom'
+  const originX = geometry.originX ?? 0
+  const originY = geometry.originY ?? 0
 
   const instances: PatternInstance[] = clean.map((placement, order) => {
     const assetIndex = assetIndexById.get(placement.assetId) ?? 0
     const asset = assets[assetIndex]
     const d = fittedDims(asset, s, geometry, placement.scale, customTile)
-    const cellX = placement.col * geometry.stepX
-    const cellY = placement.row * geometry.stepY
+    const cellX = originX + placement.col * geometry.stepX
+    const cellY = originY + placement.row * geometry.stepY
     return {
       key: placement.key,
       assetIndex,
-      x: cellX + geometry.stepX / 2 + placement.offsetX,
-      y: cellY + geometry.stepY / 2 + placement.offsetY,
+      x: cellX + geometry.cellWidth / 2 + placement.offsetX,
+      y: cellY + geometry.cellHeight / 2 + placement.offsetY,
       width: d.width,
       height: d.height,
       rotation: placement.rotation,
