@@ -7,8 +7,15 @@ export type RepeatMode =
   | 'toss'
   | 'ceplok'
   | 'kawung'
+  | 'parang'
+  | 'paisley-allover'
+  | 'paisley-center'
+  | 'paisley-frame'
+  | 'paisley-border-center'
+  | 'paisley-corner'
 
 export type WorkspaceMode = 'auto' | 'builder'
+export type OutputMode = 'seamless' | 'canvas'
 export type BuilderView = 'edit' | 'proof' | 'canvas'
 export type BuilderTool = 'paint' | 'erase'
 export type BuilderTileMode = 'grid' | 'custom'
@@ -20,10 +27,10 @@ export type OverlapY = 'top' | 'bottom'
 export type AlignX = 'left' | 'center' | 'right'
 export type AlignY = 'top' | 'middle' | 'bottom'
 
+// Kept for compatibility with the experimental v0.7 branch files.
 export type TextScript = 'latin' | 'devanagari' | 'arabic' | 'zh-hans' | 'korean' | 'japanese'
 export type TextDirection = 'ltr' | 'rtl'
 export type TextAlign = 'left' | 'center' | 'right'
-
 export type TextLayer = {
   id: string
   name: string
@@ -79,6 +86,17 @@ export type PatternSettings = {
   randomRotation: number
   density: number
   seed: number
+
+  // v0.8 specialty repeat controls. Optional so older app versions remain buildable.
+  parangAngle?: number
+  parangRowOffset?: number
+  paisleyAlternateRotation?: number
+  paisleyBorderWidth?: number
+  paisleyCenterScale?: number
+  paisleyCornerScale?: number
+  paisleyEdgeDensity?: number
+  paisleyCenterDensity?: number
+  paisleyInward?: boolean
 
   copies: number
   dimCopies: boolean
