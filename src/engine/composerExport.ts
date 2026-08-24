@@ -8,10 +8,10 @@ function esc(value: string) {
     .replaceAll('>', '&gt;')
 }
 
-function renderInstance(item: PatternInstance, asset: SvgAsset) {
+function renderInstance(item: PatternInstance, asset: SvgAsset, dx = 0, dy = 0) {
   const sx = item.flipX ? -1 : 1
   const sy = item.flipY ? -1 : 1
-  return `<g transform="translate(${item.x} ${item.y}) rotate(${item.rotation}) scale(${sx} ${sy}) translate(${-item.width / 2} ${-item.height / 2})"><svg width="${item.width}" height="${item.height}" viewBox="${esc(asset.viewBox)}" preserveAspectRatio="xMidYMid meet">${asset.innerSvg}</svg></g>`
+  return `<g transform="translate(${item.x + dx} ${item.y + dy}) rotate(${item.rotation}) scale(${sx} ${sy}) translate(${-item.width / 2} ${-item.height / 2})"><svg width="${item.width}" height="${item.height}" viewBox="${esc(asset.viewBox)}" preserveAspectRatio="xMidYMid meet">${asset.innerSvg}</svg></g>`
 }
 
 function textAnchor(align: TextLayer['align']) {
@@ -37,15 +37,20 @@ export function buildComposerSvg(
   background: string,
   geometry: PatternGeometry,
   textLayers: TextLayer[] = [],
+  wrapEdges = false,
 ) {
+  const shiftsX = wrapEdges ? [-geometry.tileWidth, 0, geometry.tileWidth] : [0]
+  const shiftsY = wrapEdges ? [-geometry.tileHeight, 0, geometry.tileHeight] : [0]
   const motifBody = instances
-    .map((item) => {
+    .flatMap((item) => {
       const asset = assets[item.assetIndex]
-      return asset ? renderInstance(item, asset) : ''
+      if (!asset) return []
+      return shiftsX.flatMap((dx) => shiftsY.map((dy) => renderInstance(item, asset, dx, dy)))
     })
     .join('')
 
   const textBody = textLayers.map(renderTextLayer).join('')
+  const clipId = wrapEdges ? 'pf-seamless-tile' : 'pf-final-canvas'
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.tileWidth}" height="${geometry.tileHeight}" viewBox="0 0 ${geometry.tileWidth} ${geometry.tileHeight}"><defs><clipPath id="pf-final-canvas"><rect width="${geometry.tileWidth}" height="${geometry.tileHeight}"/></clipPath></defs><rect width="100%" height="100%" fill="${esc(background)}"/><g clip-path="url(#pf-final-canvas)">${motifBody}${textBody}</g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.tileWidth}" height="${geometry.tileHeight}" viewBox="0 0 ${geometry.tileWidth} ${geometry.tileHeight}"><defs><clipPath id="${clipId}"><rect width="${geometry.tileWidth}" height="${geometry.tileHeight}"/></clipPath></defs><rect width="100%" height="100%" fill="${esc(background)}"/><g clip-path="url(#${clipId})">${motifBody}${textBody}</g></svg>`
 }
