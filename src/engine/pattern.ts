@@ -23,11 +23,20 @@ function dims(asset: SvgAsset, motifSize: number) {
     : { width: motifSize * ratio, height: motifSize }
 }
 
+function fitWithin(asset: SvgAsset, maxWidth: number, maxHeight: number) {
+  const ratio = asset.viewWidth / asset.viewHeight || 1
+  if (ratio >= 1) {
+    const width = Math.max(1, maxWidth)
+    return { width, height: Math.min(maxHeight, width / ratio) }
+  }
+  const height = Math.max(1, maxHeight)
+  return { width: Math.min(maxWidth, height * ratio), height }
+}
+
 function maxMotifDims(assets: SvgAsset[], motifSize: number) {
   let width = motifSize
   let height = motifSize
   if (!assets.length) return { width, height }
-
   width = 1
   height = 1
   for (const asset of assets) {
@@ -58,6 +67,10 @@ function mod(value: number, size: number) {
   return ((value % size) + size) % size
 }
 
+function isFrameMode(mode: RepeatMode) {
+  return mode === 'paisley-center' || mode === 'paisley-frame' || mode === 'paisley-border-center' || mode === 'paisley-corner'
+}
+
 export function patternGeometry(mode: RepeatMode, assets: SvgAsset[], s: PatternSettings): PatternGeometry {
   const maxDims = maxMotifDims(assets, s.motifSize)
   const cellWidth = s.sizeTileToArt
@@ -80,17 +93,22 @@ export function patternGeometry(mode: RepeatMode, assets: SvgAsset[], s: Pattern
     stepY *= 0.75
     rows = even(rows)
   }
-  if (mode === 'brick-row' || mode === 'ceplok') rows = even(rows)
+  if (mode === 'brick-row' || mode === 'ceplok' || mode === 'parang' || mode === 'paisley-allover') rows = even(rows)
   if (mode === 'brick-column') columns = even(columns)
 
-  const tileWidth = s.snapTileToGrid && mode !== 'toss'
-    ? Math.max(8, stepX * columns)
-    : Math.max(8, s.tileWidth)
-  const tileHeight = s.snapTileToGrid && mode !== 'toss'
-    ? Math.max(8, stepY * rows)
-    : Math.max(8, s.tileHeight)
+  const fixedComposition = isFrameMode(mode)
+  const tileWidth = fixedComposition
+    ? Math.max(64, s.tileWidth)
+    : s.snapTileToGrid && mode !== 'toss'
+      ? Math.max(8, stepX * columns)
+      : Math.max(8, s.tileWidth)
+  const tileHeight = fixedComposition
+    ? Math.max(64, s.tileHeight)
+    : s.snapTileToGrid && mode !== 'toss'
+      ? Math.max(8, stepY * rows)
+      : Math.max(8, s.tileHeight)
 
-  if (!s.snapTileToGrid || mode === 'toss') {
+  if ((!s.snapTileToGrid || mode === 'toss') && !fixedComposition) {
     columns = Math.max(1, Math.ceil(tileWidth / stepX))
     rows = Math.max(1, Math.ceil(tileHeight / stepY))
   }
@@ -163,8 +181,148 @@ function cellOrigin(mode: RepeatMode, row: number, col: number, g: PatternGeomet
   if (mode === 'hex-row') x += (row & 1) ? (g.cellWidth + s.hSpacing) / 2 : 0
   if (mode === 'hex-column') y += (col & 1) ? (g.cellHeight + s.vSpacing) / 2 : 0
   if (mode === 'ceplok') x += (row & 1) ? (g.cellWidth + s.hSpacing) / 2 : 0
+  if (mode === 'paisley-allover') x += (row & 1) ? g.stepX / 2 : 0
+  if (mode === 'parang') {
+    const rowOffset = Math.max(0, Math.min(1, s.parangRowOffset ?? 0.5))
+    x += (row & 1) ? g.stepX * rowOffset : 0
+  }
 
   return { x, y }
+}
+
+function pushFrameEdges(out: PatternInstance[], assets: SvgAsset[], s: PatternSettings, g: PatternGeometry, keyPrefix: string) {
+  const border = Math.max(24, Math.min(Math.min(g.tileWidth, g.tileHeight) * 0.42, s.paisleyBorderWidth ?? Math.min(g.tileWidth, g.tileHeight) * 0.16))
+  const density = Math.max(2, Math.round(s.paisleyEdgeDensity ?? 7))
+  const horizontalCount = density
+  const verticalCount = Math.max(2, Math.round(density * g.tileHeight / Math.max(1, g.tileWidth)))
+  const inward = s.paisleyInward ?? true
+  let counter = 0
+
+  for (let i = 0; i < horizontalCount; i++) {
+    const t = horizontalCount === 1 ? 0.5 : i / (horizontalCount - 1)
+    const x = border * 0.58 + t * Math.max(0, g.tileWidth - border * 1.16)
+    for (const edge of ['top', 'bottom'] as const) {
+      const assetIndex = counter++ % assets.length
+      const asset = assets[assetIndex]
+      const d = fitWithin(asset, border * 0.68, border * 0.68)
+      const top = edge === 'top'
+      out.push({
+        key: `${keyPrefix}-${edge}-${i}`,
+        assetIndex,
+        x,
+        y: top ? border * 0.48 : g.tileHeight - border * 0.48,
+        width: d.width,
+        height: d.height,
+        rotation: s.rotation + (top ? (inward ? 180 : 0) : (inward ? 0 : 180)),
+        flipX: Boolean(i & 1),
+      })
+    }
+  }
+
+  for (let i = 0; i < verticalCount; i++) {
+    const t = verticalCount === 1 ? 0.5 : i / (verticalCount - 1)
+    const y = border * 0.58 + t * Math.max(0, g.tileHeight - border * 1.16)
+    for (const edge of ['left', 'right'] as const) {
+      const assetIndex = counter++ % assets.length
+      const asset = assets[assetIndex]
+      const d = fitWithin(asset, border * 0.68, border * 0.68)
+      const left = edge === 'left'
+      out.push({
+        key: `${keyPrefix}-${edge}-${i}`,
+        assetIndex,
+        x: left ? border * 0.48 : g.tileWidth - border * 0.48,
+        y,
+        width: d.width,
+        height: d.height,
+        rotation: s.rotation + (left ? (inward ? 90 : -90) : (inward ? -90 : 90)),
+        flipX: Boolean(i & 1),
+      })
+    }
+  }
+}
+
+function pushCorners(out: PatternInstance[], assets: SvgAsset[], s: PatternSettings, g: PatternGeometry, keyPrefix: string) {
+  const border = Math.max(28, s.paisleyBorderWidth ?? Math.min(g.tileWidth, g.tileHeight) * 0.16)
+  const cornerScale = Math.max(70, s.paisleyCornerScale ?? 145) / 100
+  const maxSize = border * 1.05 * cornerScale
+  const inward = s.paisleyInward ?? true
+  const spots = [
+    { x: border * 0.58, y: border * 0.58, rotation: inward ? 135 : -45 },
+    { x: g.tileWidth - border * 0.58, y: border * 0.58, rotation: inward ? -135 : 45 },
+    { x: border * 0.58, y: g.tileHeight - border * 0.58, rotation: inward ? 45 : -135 },
+    { x: g.tileWidth - border * 0.58, y: g.tileHeight - border * 0.58, rotation: inward ? -45 : 135 },
+  ]
+  spots.forEach((spot, index) => {
+    const assetIndex = index % assets.length
+    const asset = assets[assetIndex]
+    const d = fitWithin(asset, maxSize, maxSize)
+    out.push({
+      key: `${keyPrefix}-corner-${index}`,
+      assetIndex,
+      x: spot.x,
+      y: spot.y,
+      width: d.width,
+      height: d.height,
+      rotation: spot.rotation + s.rotation,
+      flipX: index === 1 || index === 2,
+    })
+  })
+}
+
+function pushCenterMedallion(out: PatternInstance[], assets: SvgAsset[], s: PatternSettings, g: PatternGeometry, keyPrefix: string) {
+  const centerScale = Math.max(60, s.paisleyCenterScale ?? 220) / 100
+  const heroAsset = assets[0]
+  const heroMax = Math.min(g.tileWidth, g.tileHeight) * 0.28 * centerScale
+  const hero = fitWithin(heroAsset, heroMax, heroMax)
+  out.push({
+    key: `${keyPrefix}-hero`,
+    assetIndex: 0,
+    x: g.tileWidth / 2,
+    y: g.tileHeight / 2,
+    width: hero.width,
+    height: hero.height,
+    rotation: s.rotation,
+  })
+
+  const satellites = Math.max(0, Math.round(s.paisleyCenterDensity ?? 6))
+  const radiusX = Math.min(g.tileWidth * 0.24, heroMax * 1.25)
+  const radiusY = Math.min(g.tileHeight * 0.22, heroMax * 1.08)
+  for (let i = 0; i < satellites; i++) {
+    const angle = (Math.PI * 2 * i) / Math.max(1, satellites) - Math.PI / 2
+    const assetIndex = (i + 1) % assets.length
+    const asset = assets[assetIndex]
+    const d = fitWithin(asset, heroMax * 0.34, heroMax * 0.34)
+    out.push({
+      key: `${keyPrefix}-sat-${i}`,
+      assetIndex,
+      x: g.tileWidth / 2 + Math.cos(angle) * radiusX,
+      y: g.tileHeight / 2 + Math.sin(angle) * radiusY,
+      width: d.width,
+      height: d.height,
+      rotation: (angle * 180) / Math.PI + 90 + s.rotation,
+      flipX: Boolean(i & 1),
+    })
+  }
+}
+
+function generatePaisleyComposition(mode: RepeatMode, assets: SvgAsset[], s: PatternSettings, g: PatternGeometry) {
+  const out: PatternInstance[] = []
+  if (mode === 'paisley-center') pushCenterMedallion(out, assets, s, g, 'paisley-center')
+  if (mode === 'paisley-frame') {
+    pushFrameEdges(out, assets, s, g, 'paisley-frame')
+    pushCorners(out, assets, s, g, 'paisley-frame')
+  }
+  if (mode === 'paisley-border-center') {
+    pushFrameEdges(out, assets, s, g, 'paisley-border-center')
+    pushCorners(out, assets, s, g, 'paisley-border-center')
+    pushCenterMedallion(out, assets, s, g, 'paisley-border-center')
+  }
+  if (mode === 'paisley-corner') {
+    pushCorners(out, assets, s, g, 'paisley-corner')
+    const edgeSettings = { ...s, paisleyEdgeDensity: Math.max(2, Math.round((s.paisleyEdgeDensity ?? 7) * 0.55)) }
+    pushFrameEdges(out, assets, edgeSettings, g, 'paisley-corner-edge')
+  }
+  return sortForOverlap(out, s)
 }
 
 export function generatePattern(
@@ -175,6 +333,8 @@ export function generatePattern(
   if (!assets.length) return []
   const g = patternGeometry(mode, assets, s)
   const out: PatternInstance[] = []
+
+  if (isFrameMode(mode)) return generatePaisleyComposition(mode, assets, s, g)
 
   if (mode === 'toss') {
     const rand = mulberry32(s.seed)
@@ -215,10 +375,7 @@ export function generatePattern(
 
       if (mode === 'kawung') {
         const d = fitAssetToCell(asset, { ...s, motifSize: s.motifSize * 0.58 }, g)
-        const center = {
-          x: origin.x + g.cellWidth / 2,
-          y: origin.y + g.cellHeight / 2,
-        }
+        const center = { x: origin.x + g.cellWidth / 2, y: origin.y + g.cellHeight / 2 }
         ;[0, 90, 180, 270].forEach((angle, arm) => {
           const radius = Math.min(g.cellWidth, g.cellHeight) * 0.22
           const rad = (angle * Math.PI) / 180
@@ -238,7 +395,20 @@ export function generatePattern(
       const d = fitAssetToCell(asset, s, g)
       const center = alignedCenter(origin.x, origin.y, d.width, d.height, s, g)
       let rotation = s.rotation
+      let flipX = false
+      let flipY = false
+
       if (mode === 'ceplok' && ((row + col) & 1)) rotation += 45
+      if (mode === 'parang') {
+        rotation += s.parangAngle ?? -45
+        flipX = Boolean(row & 1)
+      }
+      if (mode === 'paisley-allover') {
+        const alternate = s.paisleyAlternateRotation ?? 180
+        if ((row + col) & 1) rotation += alternate
+        flipX = Boolean(col & 1)
+        flipY = Boolean(row & 1) && ((row + col) & 1) === 0
+      }
 
       out.push({
         key: `${mode}-${row}-${col}`,
@@ -248,6 +418,8 @@ export function generatePattern(
         width: d.width,
         height: d.height,
         rotation,
+        flipX,
+        flipY,
       })
     }
   }
