@@ -9,8 +9,8 @@ export default function AppV09() {
     return (
       <div className="v09-classic-wrap">
         <div className="v09-classic-return">
-          <div><b>PatternForge v0.9.1</b><span>Classic Auto Builder is still available unchanged.</span></div>
-          <button onClick={() => setWorkspace('freeform')}>← Freeform + Mirror</button>
+          <div><b>PatternForge v0.9.3</b><span>Classic Auto Builder is still available unchanged.</span></div>
+          <button onClick={() => setWorkspace('freeform')}>← Freeform + Radial Repeat</button>
         </div>
         <AppV08 />
       </div>
