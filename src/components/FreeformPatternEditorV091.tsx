@@ -719,7 +719,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
                       className="v091-mirror-hit"
                       onPointerDown={(event) => { event.stopPropagation(); setSelectedId(item.sourceId) }}
                     />
-                    <text x={0} y={-item.height / 2 - 12} className="v091-mirror-tag" textAnchor="middle">{item.mirrorAxis.toUpperCase()} · LINKED</text>
+                    <text x={0} y={-item.height / 2 - 12} className="v091-mirror-tag" textAnchor="middle">{item.mirrorAxis?.toUpperCase()} · LINKED</text>
                   </g>
                 ))}
 
