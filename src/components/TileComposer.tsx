@@ -1,5 +1,5 @@
 import TextLayerSvg from './TextLayerSvg'
-import { blockBounds, findPlacementCoveringCell, spanCols, spanRows } from '../engine/builder'
+import { blockBounds, findPlacementCoveringCell, isFreePlacement, mirrorLabel, spanCols, spanRows } from '../engine/builder'
 import type { PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TextLayer, TileCellPlacement } from '../types'
 
 type Props = {
@@ -15,6 +15,7 @@ type Props = {
   textLayers?: TextLayer[]
   selectedTextId?: string | null
   onTextSelect?: (id: string) => void
+  onPlacementSelect?: (key: string) => void
   onCellClick: (row: number, col: number) => void
 }
 
@@ -24,6 +25,16 @@ function Instance({ item, asset, dx = 0, dy = 0, opacity = 1 }: { item: PatternI
   return (
     <g opacity={opacity} pointerEvents="none" transform={`translate(${item.x + dx} ${item.y + dy}) rotate(${item.rotation}) scale(${sx} ${sy}) translate(${-item.width / 2} ${-item.height / 2})`}>
       <svg width={item.width} height={item.height} viewBox={asset.viewBox} preserveAspectRatio="xMidYMid meet" dangerouslySetInnerHTML={{ __html: asset.innerSvg }} />
+    </g>
+  )
+}
+
+function MirrorBadge({ x, y, label }: { x: number; y: number; label: string }) {
+  const width = label === 'MXY' ? 54 : 44
+  return (
+    <g className="mirror-badge" pointerEvents="none">
+      <rect x={x} y={y} width={width} height="22" rx="6" />
+      <text x={x + width / 2} y={y + 15} textAnchor="middle">{label}</text>
     </g>
   )
 }
@@ -41,6 +52,7 @@ export default function TileComposer({
   textLayers = [],
   selectedTextId = null,
   onTextSelect,
+  onPlacementSelect,
   onCellClick,
 }: Props) {
   const instanceByKey = new Map(instances.map((item) => [item.key, item]))
@@ -54,7 +66,7 @@ export default function TileComposer({
   ]
 
   return (
-    <svg className="tile-editor" viewBox={`0 0 ${geometry.tileWidth} ${geometry.tileHeight}`} aria-label="Final canvas composer">
+    <svg className="tile-editor" viewBox={`0 0 ${geometry.tileWidth} ${geometry.tileHeight}`} aria-label="PatternForge tile composer">
       <defs>
         <clipPath id="pf-builder-clip"><rect width={geometry.tileWidth} height={geometry.tileHeight} /></clipPath>
       </defs>
@@ -96,11 +108,37 @@ export default function TileComposer({
         }),
       )}
 
-      {placements.map((item) => {
+      {placements.filter(isFreePlacement).map((item) => {
+        const instance = instanceByKey.get(item.key)
+        if (!instance) return null
+        const selected = selectedKey === item.key
+        const label = mirrorLabel(item.mirror)
+        return (
+          <g
+            key={`free-hit-${item.key}`}
+            className={`free-item-control ${selected ? 'selected' : ''}`}
+            transform={`translate(${instance.x} ${instance.y}) rotate(${instance.rotation})`}
+            onClick={(e) => { e.stopPropagation(); onPlacementSelect?.(item.key) }}
+          >
+            <rect
+              x={-instance.width / 2}
+              y={-instance.height / 2}
+              width={instance.width}
+              height={instance.height}
+              className="free-item-hit"
+            />
+            {selected && <rect x={-instance.width / 2} y={-instance.height / 2} width={instance.width} height={instance.height} className="free-item-outline" pointerEvents="none" />}
+            {label !== 'None' && <MirrorBadge x={-instance.width / 2 + 8} y={-instance.height / 2 + 8} label={label} />}
+          </g>
+        )
+      })}
+
+      {placements.filter((item) => !isFreePlacement(item)).map((item) => {
         if (!instanceByKey.has(item.key)) return null
         const cols = spanCols(item)
         const rows = spanRows(item)
-        if (cols === 1 && rows === 1 && selectedKey !== item.key) return null
+        const mirror = mirrorLabel(item.mirror)
+        if (cols === 1 && rows === 1 && selectedKey !== item.key && mirror === 'None') return null
         const bounds = blockBounds(item, geometry)
         const selected = selectedKey === item.key
         return (
@@ -112,6 +150,7 @@ export default function TileComposer({
                 <text x={bounds.x + 32} y={bounds.y + 23} textAnchor="middle">{cols}×{rows}</text>
               </g>
             )}
+            {mirror !== 'None' && <MirrorBadge x={bounds.x + bounds.width - (mirror === 'MXY' ? 62 : 52)} y={bounds.y + 8} label={mirror} />}
           </g>
         )
       })}
@@ -130,8 +169,8 @@ export default function TileComposer({
 
       {(activeAssetId || erasing) && !selectedTextId && (
         <g className="builder-hint" pointerEvents="none">
-          <rect x="10" y="10" width="216" height="30" rx="7" />
-          <text x="22" y="30">{erasing ? 'Eraser: click any cell in a block' : 'Paint: click a canvas cell'}</text>
+          <rect x="10" y="10" width="252" height="30" rx="7" />
+          <text x="22" y="30">{erasing ? 'Eraser: click any grid block' : 'Paint: click a canvas grid cell'}</text>
         </g>
       )}
     </svg>
