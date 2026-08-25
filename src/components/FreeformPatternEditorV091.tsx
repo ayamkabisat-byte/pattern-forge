@@ -2,13 +2,12 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { parseSvgAsset } from '../engine/svg'
 import type { SvgAsset } from '../types'
 
+type RadialMirrorAngle = 45 | 90 | 180
+
 type MirrorConfig = {
   enabled: boolean
-  axisX: boolean
-  axisY: boolean
+  angle: RadialMirrorAngle
 }
-
-type MirrorAxis = 'x' | 'y' | 'xy'
 
 type ManualItem = {
   id: string
@@ -27,7 +26,7 @@ type ManualItem = {
 
 type RenderItem = ManualItem & {
   sourceId: string
-  mirrorAxis?: MirrorAxis
+  mirrorAngle?: number
 }
 
 type Interaction = {
@@ -49,6 +48,7 @@ type Props = {
 
 const WRAP_SHIFTS = [-1, 0, 1]
 const SNAP_DISTANCE = 14
+const RADIAL_MIRROR_ANGLES: RadialMirrorAngle[] = [45, 90, 180]
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -75,11 +75,33 @@ function itemDims(asset: SvgAsset, size: number) {
 }
 
 function mirrorLabel(config?: MirrorConfig) {
-  if (!config?.enabled) return 'None'
-  if (config.axisX && config.axisY) return 'MXY'
-  if (config.axisX) return 'MX'
-  if (config.axisY) return 'MY'
-  return 'None'
+  return config?.enabled ? `R${config.angle}` : 'None'
+}
+
+function normalizeMirror(value: unknown): MirrorConfig | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const raw = value as { enabled?: boolean; angle?: number; axisX?: boolean; axisY?: boolean }
+  if (!raw.enabled) return undefined
+  if (RADIAL_MIRROR_ANGLES.includes(Number(raw.angle) as RadialMirrorAngle)) {
+    return { enabled: true, angle: Number(raw.angle) as RadialMirrorAngle }
+  }
+  // Compatibility with v0.9.1 X/Y/XY project files.
+  if (raw.axisX || raw.axisY) return { enabled: true, angle: 180 }
+  return undefined
+}
+
+function rotateAroundCenter(x: number, y: number, tileWidth: number, tileHeight: number, angle: number) {
+  const cx = tileWidth / 2
+  const cy = tileHeight / 2
+  const dx = x - cx
+  const dy = y - cy
+  const radians = angle * Math.PI / 180
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  return {
+    x: cx + dx * cos - dy * sin,
+    y: cy + dx * sin + dy * cos,
+  }
 }
 
 function expandItemMirrors(item: ManualItem, tileWidth: number, tileHeight: number): RenderItem[] {
@@ -87,39 +109,20 @@ function expandItemMirrors(item: ManualItem, tileWidth: number, tileHeight: numb
   const mirror = item.mirror
   if (!mirror?.enabled) return [source]
 
+  const step = mirror.angle
+  const totalPositions = Math.max(2, Math.round(360 / step))
   const out: RenderItem[] = [source]
-  if (mirror.axisX) {
+  for (let index = 1; index < totalPositions; index++) {
+    const angle = step * index
+    const point = rotateAroundCenter(item.x, item.y, tileWidth, tileHeight, angle)
     out.push({
       ...item,
-      id: `${item.id}::mirror-x`,
+      id: `${item.id}::radial-${angle}`,
       sourceId: item.id,
-      mirrorAxis: 'x',
-      x: tileWidth - item.x,
-      rotation: -item.rotation,
-      flipX: !item.flipX,
-    })
-  }
-  if (mirror.axisY) {
-    out.push({
-      ...item,
-      id: `${item.id}::mirror-y`,
-      sourceId: item.id,
-      mirrorAxis: 'y',
-      y: tileHeight - item.y,
-      rotation: -item.rotation,
-      flipY: !item.flipY,
-    })
-  }
-  if (mirror.axisX && mirror.axisY) {
-    out.push({
-      ...item,
-      id: `${item.id}::mirror-xy`,
-      sourceId: item.id,
-      mirrorAxis: 'xy',
-      x: tileWidth - item.x,
-      y: tileHeight - item.y,
-      flipX: !item.flipX,
-      flipY: !item.flipY,
+      mirrorAngle: angle,
+      x: point.x,
+      y: point.y,
+      rotation: item.rotation + angle,
     })
   }
   return out
@@ -205,7 +208,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
   const [smartGuides, setSmartGuides] = useState(true)
   const [linkRatio, setLinkRatio] = useState(true)
   const [seedCount, setSeedCount] = useState(24)
-  const [message, setMessage] = useState('Upload SVG motifs, then use Live Mirror Link for symmetric scarf, paisley, batik, and ornamental layouts.')
+  const [message, setMessage] = useState('Upload SVG motifs, then use linked 45°, 90°, or 180° radial symmetry for fast pattern building.')
   const [guides, setGuides] = useState<GuideState>({ x: null, y: null })
   const inputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
@@ -256,7 +259,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
     if (next.length) {
       setAssets((current) => [...current, ...next])
       setActiveAssetId((current) => current ?? next[0].id)
-      setMessage(`${next.length} SVG motif${next.length > 1 ? 's' : ''} added. Mirror controls are available when an item is selected.`)
+      setMessage(`${next.length} SVG motif${next.length > 1 ? 's' : ''} added. Radial mirror controls appear when an item is selected.`)
     }
   }
 
@@ -312,7 +315,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
     }
     setItems(next)
     setSelectedId(next[0]?.id ?? null)
-    setMessage('Paisley half-drop baseline created. Every source paisley is independently editable and can gain linked mirrors.')
+    setMessage('Paisley half-drop baseline created. Every source paisley is independently editable and can use radial symmetry.')
   }
 
   function addActiveMotif() {
@@ -372,21 +375,22 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
     })
   }
 
-  function setMirror(axisX: boolean, axisY: boolean) {
+  function setMirror(angle: RadialMirrorAngle) {
     if (!selected || selected.locked) return
-    patchItem(selected.id, { mirror: { enabled: true, axisX, axisY } })
-    setMessage(axisX && axisY ? 'Mirror XY linked: one source now controls four symmetric positions.' : axisX ? 'Mirror X linked across the vertical center axis.' : 'Mirror Y linked across the horizontal center axis.')
+    patchItem(selected.id, { mirror: { enabled: true, angle } })
+    const total = Math.round(360 / angle)
+    setMessage(`${angle}° radial mirror linked: ${total}-way symmetry around the tile center.`)
   }
 
   function removeMirror() {
     if (!selected || selected.locked) return
     patchItem(selected.id, { mirror: undefined })
-    setMessage('Live mirror removed. The source item remains unchanged.')
+    setMessage('Radial mirror removed. The source item remains unchanged.')
   }
 
   function detachMirror() {
     if (!selected || selected.locked || !selected.mirror?.enabled) return
-    const mirrors = expandItemMirrors(selected, tileWidth, tileHeight).filter((item) => item.mirrorAxis)
+    const mirrors = expandItemMirrors(selected, tileWidth, tileHeight).filter((item) => item.mirrorAngle !== undefined)
     if (!mirrors.length) return
     const detached: ManualItem[] = mirrors.map((item) => ({
       id: crypto.randomUUID().replaceAll('-', '').slice(0, 14),
@@ -406,7 +410,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
       ...detached,
     ])
     setSelectedId(detached[0]?.id ?? selected.id)
-    setMessage(`${detached.length} mirror ${detached.length === 1 ? 'copy was' : 'copies were'} detached as independent editable items.`)
+    setMessage(`${detached.length} radial ${detached.length === 1 ? 'copy was' : 'copies were'} detached as independent editable items.`)
   }
 
   function randomizeUnlocked() {
@@ -422,7 +426,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
         rotation: -65 + Math.random() * 130,
       }
     }))
-    setMessage('Only unlocked source motifs were randomized. Linked mirrors followed automatically.')
+    setMessage('Only unlocked source motifs were randomized. Linked radial copies followed automatically.')
   }
 
   function snapPosition(itemId: string, x: number, y: number) {
@@ -534,15 +538,15 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
   }
 
   function tileSvg() {
-    const clipId = 'pf-v091-clip'
+    const clipId = 'pf-v092-clip'
     const markup = renderedItems.flatMap((item) => WRAP_SHIFTS.flatMap((sx) => WRAP_SHIFTS.map((sy) => renderItemMarkup(item, sx * tileWidth, sy * tileHeight)))).join('')
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}" viewBox="0 0 ${tileWidth} ${tileHeight}"><defs><clipPath id="${clipId}"><rect width="${tileWidth}" height="${tileHeight}"/></clipPath></defs><rect width="${tileWidth}" height="${tileHeight}" fill="${background}"/><g clip-path="url(#${clipId})">${markup}</g></svg>`
   }
 
   function exportTile() {
     if (!items.length) return
-    downloadText(tileSvg(), 'patternforge-v091-freeform-seamless-tile.svg')
-    setMessage('Freeform seamless master tile exported with linked mirrors baked into vector output.')
+    downloadText(tileSvg(), 'patternforge-v092-freeform-seamless-tile.svg')
+    setMessage('Freeform seamless master tile exported with radial linked copies baked into vector output.')
   }
 
   function exportProof() {
@@ -550,19 +554,19 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
     const tile = tileSvg().replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '')
     const groups = Array.from({ length: 3 }).flatMap((_, row) => Array.from({ length: 3 }).map((__, col) => `<g transform="translate(${col * tileWidth} ${row * tileHeight})">${tile}</g>`)).join('')
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth * 3}" height="${tileHeight * 3}" viewBox="0 0 ${tileWidth * 3} ${tileHeight * 3}">${groups}</svg>`
-    downloadText(svg, 'patternforge-v091-freeform-3x3-proof.svg')
+    downloadText(svg, 'patternforge-v092-freeform-3x3-proof.svg')
   }
 
   function saveJson() {
     const project = {
-      version: '0.9.1',
+      version: '0.9.2',
       tileWidth,
       tileHeight,
       background,
       items,
       assets: assets.map((asset) => ({ ...asset })),
     }
-    downloadText(JSON.stringify(project, null, 2), 'patternforge-v091-project.json', 'application/json;charset=utf-8')
+    downloadText(JSON.stringify(project, null, 2), 'patternforge-v092-project.json', 'application/json;charset=utf-8')
   }
 
   async function loadJson(file: File) {
@@ -571,19 +575,20 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
         tileWidth?: number
         tileHeight?: number
         background?: string
-        items?: ManualItem[]
+        items?: Array<ManualItem & { mirror?: unknown }>
         assets?: SvgAsset[]
       }
       if (!Array.isArray(project.items) || !Array.isArray(project.assets)) throw new Error('Invalid PatternForge project JSON.')
+      const loadedItems: ManualItem[] = project.items.map((item) => ({ ...item, mirror: normalizeMirror(item.mirror) }))
       setAssets(project.assets)
-      setItems(project.items.map((item) => ({ ...item, mirror: item.mirror?.enabled ? { ...item.mirror } : undefined })))
+      setItems(loadedItems)
       setTileWidth(Math.max(256, Number(project.tileWidth) || 1600))
       setTileHeight(Math.max(256, Number(project.tileHeight) || 1600))
       setBackground(typeof project.background === 'string' ? project.background : '#f4efe4')
       setActiveAssetId(project.assets[0]?.id ?? null)
-      setSelectedId(project.items[0]?.id ?? null)
+      setSelectedId(loadedItems[0]?.id ?? null)
       setView('edit')
-      setMessage('Project JSON loaded. Linked mirrors were restored with their source items.')
+      setMessage('Project JSON loaded. Radial mirror links were restored; old X/Y mirrors map safely to 180° symmetry.')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not load project JSON.')
     } finally {
@@ -592,14 +597,14 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
   }
 
   const selectedMirror = mirrorLabel(selected?.mirror)
-  const selectedMirrorCopies = selected?.mirror?.enabled ? (selected.mirror.axisX && selected.mirror.axisY ? 3 : 1) : 0
+  const selectedMirrorCopies = selected?.mirror?.enabled ? Math.max(1, Math.round(360 / selected.mirror.angle) - 1) : 0
 
   return (
     <div className="v09-editor-shell">
       <header className="v09-topbar">
         <div>
-          <div className="v09-brand"><span>PF</span> PatternForge <small>v0.9.1 Freeform</small></div>
-          <p>Per-item move · resize · rotate · Live Mirror Link · seamless edge wrapping</p>
+          <div className="v09-brand"><span>PF</span> PatternForge <small>v0.9.2 Freeform</small></div>
+          <p>Per-item move · resize · rotate · 45° / 90° / 180° radial mirror · seamless edge wrapping</p>
         </div>
         <div className="v09-top-actions">
           <button onClick={onOpenClassic}>Open Auto Builder v0.8</button>
@@ -639,7 +644,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
               <button onClick={seedPaisley} disabled={!assets.length}>Paisley Half-Drop</button>
             </div>
             <button className="v09-wide" onClick={randomizeUnlocked} disabled={!items.length}>Randomize Unlocked</button>
-            <small>Lock good source placements, then randomize only the remaining motifs. Linked mirrors always follow their source.</small>
+            <small>Lock good source placements, then randomize only the remaining motifs. Radial copies always follow their source.</small>
           </section>
 
           <section>
@@ -667,7 +672,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
 
         <section className="v09-stage-wrap">
           <div className="v09-stage-toolbar">
-            <div><b>{view === 'edit' ? 'Freeform Master Tile' : '3×3 Repeat Proof'}</b><span>{tileWidth} × {tileHeight} · {items.length} source items · {renderedItems.length} rendered with mirrors</span></div>
+            <div><b>{view === 'edit' ? 'Freeform Master Tile' : '3×3 Repeat Proof'}</b><span>{tileWidth} × {tileHeight} · {items.length} source items · {renderedItems.length} rendered with radial copies</span></div>
             <div className="v09-view-switch">
               <button className={view === 'edit' ? 'active' : ''} onClick={() => setView('edit')}>Edit</button>
               <button className={view === 'proof' ? 'active' : ''} onClick={() => setView('proof')}>Repeat Proof</button>
@@ -676,7 +681,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
 
           <div className="v09-stage">
             {!assets.length ? (
-              <div className="v09-empty"><strong>Freeform + linked symmetry</strong><p>Upload SVG motifs, place one source item, then Mirror X, Y, or XY to build symmetric scarf, paisley, batik, and ornamental compositions faster.</p></div>
+              <div className="v09-empty"><strong>Freeform + radial symmetry</strong><p>Upload SVG motifs, place one source item, then choose 45°, 90°, or 180° to create linked rotational symmetry around the tile center.</p></div>
             ) : view === 'proof' ? (
               <RepeatProof assets={assets} items={items} tileWidth={tileWidth} tileHeight={tileHeight} background={background} />
             ) : (
@@ -689,26 +694,22 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
                 onPointerCancel={finishInteraction}
                 onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null) }}
               >
-                <defs><clipPath id="pf-v091-editor-clip"><rect width={tileWidth} height={tileHeight} /></clipPath></defs>
+                <defs><clipPath id="pf-v092-editor-clip"><rect width={tileWidth} height={tileHeight} /></clipPath></defs>
                 <rect width={tileWidth} height={tileHeight} fill={background} />
-                <g clipPath="url(#pf-v091-editor-clip)">
+                <g clipPath="url(#pf-v092-editor-clip)">
                   {renderedItems.filter((item) => item.visible).flatMap((item) => {
                     const asset = assetById.get(item.assetId)
                     if (!asset) return []
                     return WRAP_SHIFTS.flatMap((sx) => WRAP_SHIFTS.map((sy) => (
-                      <ManualAsset key={`${item.id}-${sx}-${sy}`} item={item} asset={asset} dx={sx * tileWidth} dy={sy * tileHeight} opacity={sx === 0 && sy === 0 ? (item.mirrorAxis ? 0.92 : 1) : 0.68} />
+                      <ManualAsset key={`${item.id}-${sx}-${sy}`} item={item} asset={asset} dx={sx * tileWidth} dy={sy * tileHeight} opacity={sx === 0 && sy === 0 ? (item.mirrorAngle !== undefined ? 0.92 : 1) : 0.68} />
                     )))
                   })}
                 </g>
 
                 {smartGuides && guides.x !== null ? <line x1={guides.x} x2={guides.x} y1="0" y2={tileHeight} className="v09-guide" /> : null}
                 {smartGuides && guides.y !== null ? <line y1={guides.y} y2={guides.y} x1="0" x2={tileWidth} className="v09-guide" /> : null}
-                {selected?.mirror?.enabled ? <>
-                  {selected.mirror.axisX ? <line x1={tileWidth / 2} x2={tileWidth / 2} y1="0" y2={tileHeight} className="v091-mirror-axis" /> : null}
-                  {selected.mirror.axisY ? <line y1={tileHeight / 2} y2={tileHeight / 2} x1="0" x2={tileWidth} className="v091-mirror-axis" /> : null}
-                </> : null}
 
-                {renderedItems.filter((item) => item.visible && item.mirrorAxis && item.sourceId === selectedId).map((item) => (
+                {renderedItems.filter((item) => item.visible && item.mirrorAngle !== undefined && item.sourceId === selectedId).map((item) => (
                   <g key={`mirror-control-${item.id}`} transform={`translate(${item.x} ${item.y}) rotate(${item.rotation})`}>
                     <rect x={-item.width / 2} y={-item.height / 2} width={item.width} height={item.height} className="v091-mirror-outline" pointerEvents="none" />
                     <rect
@@ -719,7 +720,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
                       className="v091-mirror-hit"
                       onPointerDown={(event) => { event.stopPropagation(); setSelectedId(item.sourceId) }}
                     />
-                    <text x={0} y={-item.height / 2 - 12} className="v091-mirror-tag" textAnchor="middle">{item.mirrorAxis?.toUpperCase()} · LINKED</text>
+                    <text x={0} y={-item.height / 2 - 12} className="v091-mirror-tag" textAnchor="middle">{item.mirrorAngle}° · LINKED</text>
                   </g>
                 ))}
 
@@ -765,7 +766,7 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
             </div>
             <label className="v09-field"><span>Background</span><input type="color" value={background} onChange={(event) => setBackground(event.target.value)} /></label>
             <label className="v09-check"><input type="checkbox" checked={smartGuides} onChange={(event) => setSmartGuides(event.target.checked)} /> Smart center guides</label>
-            <label className="v09-check"><input type="checkbox" checked={showCollisions} onChange={(event) => setShowCollisions(event.target.checked)} /> Collision indicators incl. mirrors</label>
+            <label className="v09-check"><input type="checkbox" checked={showCollisions} onChange={(event) => setShowCollisions(event.target.checked)} /> Collision indicators incl. radial copies</label>
           </section>
 
           <section>
@@ -791,30 +792,30 @@ export default function FreeformPatternEditorV091({ onOpenClassic }: Props) {
                 </div>
 
                 <div className="v091-mirror-panel">
-                  <div className="v091-mirror-heading"><div><b>Live Mirror Link</b><span>Virtual linked copies</span></div><strong>{selectedMirror}</strong></div>
+                  <div className="v091-mirror-heading"><div><b>Radial Mirror</b><span>Linked around tile center</span></div><strong>{selectedMirror}</strong></div>
                   <div className="v091-mirror-grid">
-                    <button className={selectedMirror === 'MX' ? 'active' : ''} disabled={selected.locked} onClick={() => setMirror(true, false)}>Mirror X</button>
-                    <button className={selectedMirror === 'MY' ? 'active' : ''} disabled={selected.locked} onClick={() => setMirror(false, true)}>Mirror Y</button>
-                    <button className={selectedMirror === 'MXY' ? 'active' : ''} disabled={selected.locked} onClick={() => setMirror(true, true)}>Mirror XY</button>
+                    <button className={selectedMirror === 'R45' ? 'active' : ''} disabled={selected.locked} onClick={() => setMirror(45)}>45°</button>
+                    <button className={selectedMirror === 'R90' ? 'active' : ''} disabled={selected.locked} onClick={() => setMirror(90)}>90°</button>
+                    <button className={selectedMirror === 'R180' ? 'active' : ''} disabled={selected.locked} onClick={() => setMirror(180)}>180°</button>
                   </div>
                   <div className="v091-mirror-actions">
                     <button disabled={selected.locked || selectedMirror === 'None'} onClick={removeMirror}>Remove Mirror</button>
-                    <button className="v091-detach" disabled={selected.locked || selectedMirror === 'None'} onClick={detachMirror}>Detach Mirror{selectedMirrorCopies > 1 ? ` (${selectedMirrorCopies})` : ''}</button>
+                    <button className="v091-detach" disabled={selected.locked || selectedMirror === 'None'} onClick={detachMirror}>Detach{selectedMirrorCopies > 0 ? ` (${selectedMirrorCopies})` : ''}</button>
                   </div>
-                  <small>Mirrors are derived from the source before seamless edge wrapping. Move, resize, rotate, flip, hide, or lock the source and all linked copies update automatically. Detach converts the virtual copies into normal independent items.</small>
+                  <small>45° creates 8-way symmetry, 90° creates 4-way symmetry, and 180° creates a linked opposite pair. Copies rotate around the tile center, then seamless edge wrapping is applied.</small>
                 </div>
 
                 <button className="v09-wide v09-danger" onClick={() => deleteItem(selected.id)} disabled={selected.locked}>Delete Item</button>
                 <small>Drag motif to move. Bottom-right square resizes. Round handle rotates. Ctrl/Cmd+D duplicates; Delete removes unlocked source items.</small>
               </>
-            ) : <p className="v09-help">Select a source motif on the tile, a linked mirror, or from Pattern Items.</p>}
+            ) : <p className="v09-help">Select a source motif, a linked radial copy, or an item from Pattern Items.</p>}
           </section>
 
           <section>
             <h2>Seamless Behavior</h2>
-            <div className="v09-info-card"><b>Source → Mirror → Edge Wrap</b><span>Mirror copies are generated first, then every source and mirror receives seamless edge wrapping. This keeps symmetry and repeat behavior mathematically linked.</span></div>
-            <div className="v09-info-card"><b>Mirror clones are not direct-edit items</b><span>Clicking a linked clone selects its source. Use Detach Mirror when you want the copies to become independent.</span></div>
-            <div className="v09-info-card"><b>Freeze + Randomize</b><span>Lock the placements you like, then Randomize Unlocked. Linked mirrors follow their locked or moving source.</span></div>
+            <div className="v09-info-card"><b>Source → Radial Copies → Edge Wrap</b><span>Radial symmetry is generated around the exact tile center first. Every source and linked copy then receives seamless edge wrapping.</span></div>
+            <div className="v09-info-card"><b>45° / 90° / 180° only</b><span>Three presets keep the tool simple: 8-way, 4-way, or 2-way rotational symmetry.</span></div>
+            <div className="v09-info-card"><b>Detach when needed</b><span>Linked copies are virtual. Detach converts them into normal independent items for manual variation.</span></div>
           </section>
         </aside>
       </main>
