@@ -1,5 +1,5 @@
 import { patternGeometry } from './pattern'
-import type { BuilderTileSettings, PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TileCellPlacement } from '../types'
+import type { BuilderTileSettings, MirrorAxis, MirrorConfig, PatternGeometry, PatternInstance, PatternSettings, SvgAsset, TileCellPlacement } from '../types'
 
 function mulberry32(seed: number) {
   return () => {
@@ -41,6 +41,10 @@ export function cellKey(row: number, col: number) {
   return `cell-${row}-${col}`
 }
 
+export function isFreePlacement(item: TileCellPlacement) {
+  return item.positionMode === 'free'
+}
+
 export function spanCols(item: TileCellPlacement) {
   return Math.max(1, Math.round(item.spanCols ?? 1))
 }
@@ -50,6 +54,7 @@ export function spanRows(item: TileCellPlacement) {
 }
 
 export function placementCoversCell(item: TileCellPlacement, row: number, col: number) {
+  if (isFreePlacement(item)) return false
   return row >= item.row &&
     row < item.row + spanRows(item) &&
     col >= item.col &&
@@ -65,6 +70,7 @@ export function spanFitsGrid(row: number, col: number, cols: number, rows: numbe
 }
 
 function placementsOverlap(a: TileCellPlacement, b: TileCellPlacement) {
+  if (isFreePlacement(a) || isFreePlacement(b)) return false
   const aRight = a.col + spanCols(a)
   const aBottom = a.row + spanRows(a)
   const bRight = b.col + spanCols(b)
@@ -95,6 +101,7 @@ export function canUseSpan(
     flipY: false,
     spanCols: cols,
     spanRows: rows,
+    positionMode: 'grid',
   }
   return !placements.some((item) => item.key !== targetKey && placementsOverlap(candidate, item))
 }
@@ -113,6 +120,33 @@ export function createPlacement(row: number, col: number, assetId: string): Tile
     flipY: false,
     spanCols: 1,
     spanRows: 1,
+    positionMode: 'grid',
+  }
+}
+
+export function createFreePlacement(
+  source: PatternInstance,
+  assetId: string,
+  key = `free-${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`,
+): TileCellPlacement {
+  return {
+    key,
+    row: 0,
+    col: 0,
+    assetId,
+    rotation: source.rotation,
+    scale: 100,
+    offsetX: 0,
+    offsetY: 0,
+    flipX: !!source.flipX,
+    flipY: !!source.flipY,
+    spanCols: 1,
+    spanRows: 1,
+    positionMode: 'free',
+    freeX: source.x,
+    freeY: source.y,
+    freeWidth: source.width,
+    freeHeight: source.height,
   }
 }
 
@@ -123,10 +157,18 @@ export function normalizePlacements(placements: TileCellPlacement[], g: PatternG
   for (const raw of placements) {
     const item: TileCellPlacement = {
       ...raw,
+      positionMode: raw.positionMode ?? 'grid',
       spanCols: spanCols(raw),
       spanRows: spanRows(raw),
     }
     if (!validAssets.has(item.assetId)) continue
+
+    if (isFreePlacement(item)) {
+      if (!Number.isFinite(item.freeX) || !Number.isFinite(item.freeY)) continue
+      accepted.push(item)
+      continue
+    }
+
     if (!spanFitsGrid(item.row, item.col, spanCols(item), spanRows(item), g)) continue
     if (accepted.some((other) => placementsOverlap(item, other))) continue
     accepted.push(item)
@@ -211,6 +253,15 @@ export function builderGeometry(
 }
 
 export function blockBounds(item: TileCellPlacement, g: PatternGeometry) {
+  if (isFreePlacement(item)) {
+    const scale = Math.max(0.05, item.scale / 100)
+    const width = Math.max(1, (item.freeWidth ?? g.cellWidth) * scale)
+    const height = Math.max(1, (item.freeHeight ?? g.cellHeight) * scale)
+    const cx = (item.freeX ?? g.tileWidth / 2) + item.offsetX
+    const cy = (item.freeY ?? g.tileHeight / 2) + item.offsetY
+    return { x: cx - width / 2, y: cy - height / 2, width, height }
+  }
+
   const cols = spanCols(item)
   const rows = spanRows(item)
   const originX = g.originX ?? 0
@@ -220,6 +271,66 @@ export function blockBounds(item: TileCellPlacement, g: PatternGeometry) {
   const width = g.cellWidth + Math.max(0, cols - 1) * g.stepX
   const height = g.cellHeight + Math.max(0, rows - 1) * g.stepY
   return { x, y, width, height }
+}
+
+function makeMirror(item: PatternInstance, axis: MirrorAxis, g: PatternGeometry): PatternInstance {
+  if (axis === 'x') {
+    return {
+      ...item,
+      key: `${item.key}::mirror-x`,
+      sourceKey: item.key,
+      virtualMirror: 'x',
+      x: g.tileWidth - item.x,
+      rotation: -item.rotation,
+      flipX: !item.flipX,
+      order: (item.order ?? 0) + 0.1,
+    }
+  }
+  if (axis === 'y') {
+    return {
+      ...item,
+      key: `${item.key}::mirror-y`,
+      sourceKey: item.key,
+      virtualMirror: 'y',
+      y: g.tileHeight - item.y,
+      rotation: -item.rotation,
+      flipY: !item.flipY,
+      order: (item.order ?? 0) + 0.2,
+    }
+  }
+  return {
+    ...item,
+    key: `${item.key}::mirror-xy`,
+    sourceKey: item.key,
+    virtualMirror: 'xy',
+    x: g.tileWidth - item.x,
+    y: g.tileHeight - item.y,
+    flipX: !item.flipX,
+    flipY: !item.flipY,
+    order: (item.order ?? 0) + 0.3,
+  }
+}
+
+export function mirrorAxes(config?: MirrorConfig): MirrorAxis[] {
+  if (!config?.enabled) return []
+  const axes: MirrorAxis[] = []
+  if (config.axisX) axes.push('x')
+  if (config.axisY) axes.push('y')
+  if (config.axisX && config.axisY) axes.push('xy')
+  return axes
+}
+
+export function mirrorLabel(config?: MirrorConfig) {
+  if (!config?.enabled) return 'None'
+  if (config.axisX && config.axisY) return 'MXY'
+  if (config.axisX) return 'MX'
+  if (config.axisY) return 'MY'
+  return 'None'
+}
+
+export function expandMirrors(item: PatternInstance, config: MirrorConfig | undefined, g: PatternGeometry) {
+  const clones = mirrorAxes(config).map((axis) => makeMirror(item, axis, g))
+  return [item, ...clones]
 }
 
 export function generateBuilderPattern(
@@ -233,9 +344,30 @@ export function generateBuilderPattern(
   const clean = normalizePlacements(placements, geometry, assets)
   const customTile = tile?.mode === 'custom'
 
-  const instances: PatternInstance[] = clean.map((placement, order) => {
+  const baseInstances: PatternInstance[] = clean.map((placement, order) => {
     const assetIndex = assetIndexById.get(placement.assetId) ?? 0
     const asset = assets[assetIndex]
+
+    if (isFreePlacement(placement)) {
+      const manual = Math.max(0.05, placement.scale / 100)
+      const fallback = dims(asset, customTile ? Math.min(geometry.cellWidth, geometry.cellHeight) * 0.96 : s.motifSize)
+      const width = Math.max(1, (placement.freeWidth ?? fallback.width) * manual)
+      const height = Math.max(1, (placement.freeHeight ?? fallback.height) * manual)
+      return {
+        key: placement.key,
+        assetIndex,
+        x: (placement.freeX ?? geometry.tileWidth / 2) + placement.offsetX,
+        y: (placement.freeY ?? geometry.tileHeight / 2) + placement.offsetY,
+        width,
+        height,
+        rotation: placement.rotation,
+        flipX: placement.flipX,
+        flipY: placement.flipY,
+        order,
+        freeform: true,
+      }
+    }
+
     const bounds = blockBounds(placement, geometry)
     const d = fittedDims(asset, s, bounds.width, bounds.height, placement.scale, customTile)
     return {
@@ -251,6 +383,9 @@ export function generateBuilderPattern(
       order,
     }
   })
+
+  const placementByKey = new Map(clean.map((item) => [item.key, item]))
+  const instances = baseInstances.flatMap((instance) => expandMirrors(instance, placementByKey.get(instance.key)?.mirror, geometry))
 
   return { geometry, instances }
 }
