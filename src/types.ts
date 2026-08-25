@@ -26,6 +26,7 @@ export type OverlapX = 'left' | 'right'
 export type OverlapY = 'top' | 'bottom'
 export type AlignX = 'left' | 'center' | 'right'
 export type AlignY = 'top' | 'middle' | 'bottom'
+export type MirrorAxis = 'x' | 'y' | 'xy'
 
 // Kept for compatibility with the experimental v0.7 branch files.
 export type TextScript = 'latin' | 'devanagari' | 'arabic' | 'zh-hans' | 'korean' | 'japanese'
@@ -134,6 +135,12 @@ export type CanvasLayout = {
   patternHeight: number
 }
 
+export type MirrorConfig = {
+  enabled: boolean
+  axisX: boolean
+  axisY: boolean
+}
+
 export type PatternInstance = {
   key: string
   assetIndex: number
@@ -145,6 +152,9 @@ export type PatternInstance = {
   flipX?: boolean
   flipY?: boolean
   order?: number
+  sourceKey?: string
+  virtualMirror?: MirrorAxis
+  freeform?: boolean
 }
 
 export type TileCellPlacement = {
@@ -160,6 +170,12 @@ export type TileCellPlacement = {
   flipY: boolean
   spanCols?: number
   spanRows?: number
+  mirror?: MirrorConfig
+  positionMode?: 'grid' | 'free'
+  freeX?: number
+  freeY?: number
+  freeWidth?: number
+  freeHeight?: number
 }
 
 export type PatternGeometry = {
