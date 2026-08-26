@@ -5,10 +5,11 @@ import LayoutGuideBuilder from './components/LayoutGuideBuilder'
 import MyPatternLibraryV111 from './components/MyPatternLibraryV111'
 import PixelPatternBuilder from './components/PixelPatternBuilder'
 import PlaidTartanMaker from './components/PlaidTartanMaker'
+import RepeatLayoutWorkspace from './components/RepeatLayoutWorkspace'
 import WovenTextileWorkspace from './components/WovenTextileWorkspace'
 import { patternAssetToSvg, setPendingPattern, type PatternAsset, type PatternTarget } from './patternLibrary'
 
-type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'library' | 'legacy'
+type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'library' | 'legacy'
 
 function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange: (workspace: Workspace) => void }) {
   const items: Array<{ id: Workspace; label: string; hint: string }> = [
@@ -17,6 +18,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'plaid', label: 'Plaid / Tartan', hint: 'Template + HEX' },
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
     { id: 'pixel', label: 'Pixel Pattern', hint: 'Grid · 4K SVG · Crop' },
+    { id: 'repeat', label: 'Repeat Layout', hint: 'Grid · Brick · Hex' },
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
@@ -25,7 +27,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav v11-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.1.4 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.1.5 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -34,7 +36,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
           </button>
         ))}
       </div>
-      <div className="v10-nav-rule">Build once · scale SVG · center · crop · reuse.</div>
+      <div className="v10-nav-rule">Build once · exact repeat · scale SVG · reuse.</div>
     </nav>
   )
 }
@@ -66,6 +68,12 @@ export default function AppV10() {
       return
     }
 
+    if (target === 'repeat') {
+      setPendingPattern('repeat', asset)
+      setWorkspace('repeat')
+      return
+    }
+
     if (target === 'seamless') {
       setWorkspace('seamless')
       window.setTimeout(() => dispatchSvgDrop('.v10-freeform-host .v09-dropzone', asset), 140)
@@ -92,7 +100,7 @@ export default function AppV10() {
 
       {workspace === 'seamless' ? (
         <div className="v10-freeform-host">
-          <FreeformPatternEditorV091 onOpenClassic={() => setWorkspace('legacy')} />
+          <FreeformPatternEditorV091 onOpenClassic={() => setWorkspace('repeat')} />
         </div>
       ) : null}
 
@@ -122,6 +130,10 @@ export default function AppV10() {
         <PixelPatternBuilder onOpenLibrary={() => setWorkspace('library')} onOpenWoven={() => setWorkspace('textile')} />
       ) : null}
 
+      {workspace === 'repeat' ? (
+        <RepeatLayoutWorkspace onOpenLibrary={() => setWorkspace('library')} onOpenPixel={() => setWorkspace('pixel')} />
+      ) : null}
+
       {workspace === 'library' ? (
         <MyPatternLibraryV111 onUsePattern={usePattern} onOpenPixel={() => setWorkspace('pixel')} />
       ) : null}
@@ -129,8 +141,8 @@ export default function AppV10() {
       {workspace === 'legacy' ? (
         <div className="v10-legacy-shell">
           <div className="v10-legacy-note">
-            <div><b>Legacy Auto Builder</b><span>Paisley / Kawung / Parang auto presets are kept only for reference. New work should use Layout Guides, Woven / Textile, Pixel Pattern or Freeform.</span></div>
-            <button onClick={() => setWorkspace('guides')}>Open Layout Guides</button>
+            <div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Grid, Brick, Brick Column and Hex Row now have a dedicated Repeat Layout workspace with exact SVG bounds.</span></div>
+            <button onClick={() => setWorkspace('repeat')}>Open Repeat Layout</button>
           </div>
           <div className="v10-legacy-scroll"><AppV08 /></div>
         </div>

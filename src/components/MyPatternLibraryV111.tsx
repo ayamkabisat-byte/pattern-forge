@@ -169,8 +169,9 @@ export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel }: Prop
                     <small>{item.palette?.length ?? item.grid?.palette.length ?? 0} palette colors · updated {new Date(item.updatedAt).toLocaleDateString()}</small>
                     {item.meta?.cropped ? <em className="v111-motif-badge">CROPPED MOTIF · READY FOR OTHER BUILDERS</em> : null}
                   </div>
-                  <div className="v11-use-row">
+                  <div className="v11-use-row v115-use-row">
                     <button onClick={() => onUsePattern(item, 'seamless')}>Use in Seamless</button>
+                    <button onClick={() => onUsePattern(item, 'repeat')}>Use in Repeat Layout</button>
                     <button onClick={() => onUsePattern(item, 'guides')}>Use in Layout</button>
                     <button onClick={() => onUsePattern(item, 'woven')}>Use in Woven</button>
                     {editable ? <button className="active" onClick={() => onUsePattern(item, 'pixel')}>Edit Grid</button> : null}
