@@ -3,7 +3,7 @@ import AppV08 from './AppV08'
 import FreeformPatternEditorV091 from './components/FreeformPatternEditorV091'
 import LayoutGuideBuilder from './components/LayoutGuideBuilder'
 import MyPatternLibraryV111 from './components/MyPatternLibraryV111'
-import PixelPatternBuilderV111 from './components/PixelPatternBuilderV111'
+import PixelPatternBuilder from './components/PixelPatternBuilder'
 import PlaidTartanMaker from './components/PlaidTartanMaker'
 import WovenTextileWorkspace from './components/WovenTextileWorkspace'
 import { patternAssetToSvg, setPendingPattern, type PatternAsset, type PatternTarget } from './patternLibrary'
@@ -16,7 +16,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'guides', label: 'Layout Guides', hint: 'Frame · Strip · Diagonal' },
     { id: 'plaid', label: 'Plaid / Tartan', hint: 'Template + HEX' },
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
-    { id: 'pixel', label: 'Pixel Pattern', hint: 'Select · Center · Crop' },
+    { id: 'pixel', label: 'Pixel Pattern', hint: 'Transparent · Center · Crop' },
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
@@ -25,7 +25,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav v11-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.1.1 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.1.2 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -119,7 +119,7 @@ export default function AppV10() {
       ) : null}
 
       {workspace === 'pixel' ? (
-        <PixelPatternBuilderV111 onOpenLibrary={() => setWorkspace('library')} onOpenWoven={() => setWorkspace('textile')} />
+        <PixelPatternBuilder onOpenLibrary={() => setWorkspace('library')} onOpenWoven={() => setWorkspace('textile')} />
       ) : null}
 
       {workspace === 'library' ? (
