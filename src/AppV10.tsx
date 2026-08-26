@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AppV08 from './AppV08'
 import CamouflageWorkspace from './components/CamouflageWorkspace'
+import DirectionalRepeatWorkspace from './components/DirectionalRepeatWorkspace'
 import FreeformPatternEditorV091 from './components/FreeformPatternEditorV091'
 import LayoutGuideBuilder from './components/LayoutGuideBuilder'
 import LuxurySuiteWorkspace from './components/LuxurySuiteWorkspace'
@@ -11,7 +12,7 @@ import RepeatLayoutWorkspace from './components/RepeatLayoutWorkspace'
 import WovenTextileWorkspace from './components/WovenTextileWorkspace'
 import { patternAssetToSvg, setPendingPattern, type PatternAsset, type PatternTarget } from './patternLibrary'
 
-type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'camouflage' | 'luxury' | 'library' | 'legacy'
+type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'directional' | 'camouflage' | 'luxury' | 'library' | 'legacy'
 
 function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange: (workspace: Workspace) => void }) {
   const items: Array<{ id: Workspace; label: string; hint: string }> = [
@@ -21,12 +22,13 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
     { id: 'pixel', label: 'Pixel Pattern', hint: 'Grid · 4K SVG · Crop' },
     { id: 'repeat', label: 'Repeat Layout', hint: 'Grid · Brick · Hex' },
+    { id: 'directional', label: 'Directional', hint: 'Parang · Rows · Strips' },
     { id: 'camouflage', label: 'Camouflage', hint: 'Region · Interlock · Pebble' },
     { id: 'luxury', label: 'Luxury Suite', hint: 'Custom SVG · Monogram · Hijab' },
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
-  return <nav className="v10-global-nav v11-global-nav"><div className="v10-nav-brand"><span>PF</span><div><b>PatternForge</b><small>v1.5 Preview</small></div></div><div className="v10-nav-tabs">{items.map((item) => <button key={item.id} className={workspace === item.id ? 'active' : ''} onClick={() => onChange(item.id)}><b>{item.label}</b><span>{item.hint}</span></button>)}</div><div className="v10-nav-rule">Build · compose · repeat · reuse.</div></nav>
+  return <nav className="v10-global-nav v11-global-nav"><div className="v10-nav-brand"><span>PF</span><div><b>PatternForge</b><small>v1.6 Preview</small></div></div><div className="v10-nav-tabs">{items.map((item) => <button key={item.id} className={workspace === item.id ? 'active' : ''} onClick={() => onChange(item.id)}><b>{item.label}</b><span>{item.hint}</span></button>)}</div><div className="v10-nav-rule">Build · compose · repeat · reuse.</div></nav>
 }
 
 function dispatchSvgDrop(selector: string, asset: PatternAsset) {
@@ -39,6 +41,7 @@ export default function AppV10() {
   function usePattern(asset: PatternAsset, target: PatternTarget) {
     if (target === 'pixel') { setPendingPattern('pixel', asset); setWorkspace('pixel'); return }
     if (target === 'repeat') { setPendingPattern('repeat', asset); setWorkspace('repeat'); return }
+    if (target === 'directional') { setPendingPattern('directional', asset); setWorkspace('directional'); return }
     if (target === 'camouflage') { setPendingPattern('camouflage', asset); setWorkspace('camouflage'); return }
     if (target === 'luxury') { setPendingPattern('luxury', asset); setWorkspace('luxury'); return }
     if (target === 'scarf') { setPendingPattern('scarf', asset); setWorkspace('luxury'); return }
@@ -53,9 +56,10 @@ export default function AppV10() {
     {workspace === 'textile' ? <WovenTextileWorkspace onOpenSeamless={() => setWorkspace('seamless')} onOpenGuides={() => setWorkspace('guides')} onOpenPlaid={() => setWorkspace('plaid')}/> : null}
     {workspace === 'pixel' ? <PixelPatternBuilder onOpenLibrary={() => setWorkspace('library')} onOpenWoven={() => setWorkspace('textile')}/> : null}
     {workspace === 'repeat' ? <RepeatLayoutWorkspace onOpenLibrary={() => setWorkspace('library')} onOpenPixel={() => setWorkspace('pixel')}/> : null}
+    {workspace === 'directional' ? <DirectionalRepeatWorkspace onOpenLibrary={() => setWorkspace('library')}/> : null}
     {workspace === 'camouflage' ? <CamouflageWorkspace onOpenLibrary={() => setWorkspace('library')} onOpenRepeat={() => setWorkspace('repeat')} onOpenPixel={() => setWorkspace('pixel')}/> : null}
     {workspace === 'luxury' ? <LuxurySuiteWorkspace onOpenLibrary={() => setWorkspace('library')}/> : null}
     {workspace === 'library' ? <MyPatternLibraryV111 onUsePattern={usePattern} onOpenPixel={() => setWorkspace('pixel')} onOpenCamouflage={() => setWorkspace('camouflage')} onOpenLuxury={() => setWorkspace('luxury')}/> : null}
-    {workspace === 'legacy' ? <div className="v10-legacy-shell"><div className="v10-legacy-note"><div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Modern repeat, procedural camouflage and luxury composition workflows now have dedicated workspaces.</span></div><button onClick={() => setWorkspace('repeat')}>Open Repeat Layout</button></div><div className="v10-legacy-scroll"><AppV08/></div></div> : null}
+    {workspace === 'legacy' ? <div className="v10-legacy-shell"><div className="v10-legacy-note"><div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Use the new Directional workspace for Parang and other row/strip repeats.</span></div><button onClick={() => setWorkspace('directional')}>Open Directional Repeat</button></div><div className="v10-legacy-scroll"><AppV08/></div></div> : null}
   </div>
 }
