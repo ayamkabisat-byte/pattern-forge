@@ -1,5 +1,7 @@
-export type PatternSourceType = 'grid' | 'woven-template' | 'imported-svg' | 'imported-json'
-export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat'
+import type { CamoPatternData } from './engine/camouflage/types'
+
+export type PatternSourceType = 'grid' | 'woven-template' | 'camouflage' | 'imported-svg' | 'imported-json'
+export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat' | 'camouflage'
 
 export type GridPatternData = {
   width: number
@@ -18,6 +20,7 @@ export type PatternAsset = {
   svg?: string
   palette?: string[]
   grid?: GridPatternData
+  camo?: CamoPatternData
   tags?: string[]
   meta?: Record<string, string | number | boolean>
 }
@@ -48,6 +51,10 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
+function cloneCamo(camo?: CamoPatternData) {
+  return camo ? JSON.parse(JSON.stringify(camo)) as CamoPatternData : undefined
+}
+
 function notifyLibrary() {
   window.dispatchEvent(new CustomEvent(LIBRARY_EVENT))
 }
@@ -73,6 +80,7 @@ export function savePatternAsset(input: Omit<PatternAsset, 'id' | 'createdAt' | 
   const stamp = nowIso()
   const asset: PatternAsset = {
     ...input,
+    camo: cloneCamo(input.camo),
     id: input.id ?? uid(),
     createdAt: existing?.createdAt ?? stamp,
     updatedAt: stamp,
@@ -103,6 +111,7 @@ export function duplicatePatternAsset(id: string) {
     createdAt: nowIso(),
     updatedAt: nowIso(),
     grid: source.grid ? { ...source.grid, palette: [...source.grid.palette] } : undefined,
+    camo: cloneCamo(source.camo),
     palette: source.palette ? [...source.palette] : undefined,
     tags: source.tags ? [...source.tags] : undefined,
     meta: source.meta ? { ...source.meta } : undefined,
@@ -181,7 +190,7 @@ export function patternAssetToSvg(asset: PatternAsset) {
 }
 
 export function exportPatternAssetJson(asset: PatternAsset) {
-  return JSON.stringify({ patternForge: 'pattern-asset', version: '1.1', asset }, null, 2)
+  return JSON.stringify({ patternForge: 'pattern-asset', version: '1.2', asset }, null, 2)
 }
 
 export function parsePatternAssetJson(raw: string): PatternAsset {
@@ -196,6 +205,7 @@ export function parsePatternAssetJson(raw: string): PatternAsset {
     updatedAt: stamp,
     palette: candidate.palette ? [...candidate.palette] : undefined,
     grid: candidate.grid ? { ...candidate.grid, palette: [...candidate.grid.palette] } : undefined,
+    camo: cloneCamo(candidate.camo),
   }
 }
 
