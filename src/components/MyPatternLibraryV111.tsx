@@ -1,194 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  deletePatternAsset,
-  duplicatePatternAsset,
-  exportPatternAssetJson,
-  importPatternAssetJson,
-  libraryEventName,
-  loadPatternLibrary,
-  patternAssetToSvg,
-  renamePatternAsset,
-  savePatternAsset,
-  type PatternAsset,
-  type PatternTarget,
-} from '../patternLibrary'
+import { isLuxuryScarf } from '../engine/luxury/types'
+import { deletePatternAsset, duplicatePatternAsset, exportPatternAssetJson, importPatternAssetJson, libraryEventName, loadPatternLibrary, patternAssetToSvg, renamePatternAsset, savePatternAsset, type PatternAsset, type PatternTarget } from '../patternLibrary'
 
-type Props = {
-  onUsePattern: (asset: PatternAsset, target: PatternTarget) => void
-  onOpenPixel: () => void
-  onOpenCamouflage: () => void
-  onOpenLuxury: () => void
-}
+type Props = { onUsePattern: (asset: PatternAsset, target: PatternTarget) => void; onOpenPixel: () => void; onOpenCamouflage: () => void; onOpenLuxury: () => void }
+const EDITABLE_GRID_SIZES = new Set([8,16,32,64,128,256])
+const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pattern'
+const svgDataUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 
-const EDITABLE_GRID_SIZES = new Set([8, 16, 32, 64, 128, 256])
-
-function downloadText(text: string, filename: string, type: string) {
-  const blob = new Blob([text], { type })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1200)
-}
-
-function slug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pattern'
-}
-
-function svgDimensions(svg: string) {
-  const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
-  const root = doc.documentElement
-  const viewBox = root.getAttribute('viewBox')?.trim().split(/[ ,]+/).map(Number)
-  if (viewBox && viewBox.length === 4 && viewBox.every(Number.isFinite)) return { width: Math.abs(viewBox[2]) || 100, height: Math.abs(viewBox[3]) || 100 }
-  const width = Number.parseFloat(root.getAttribute('width') || '100') || 100
-  const height = Number.parseFloat(root.getAttribute('height') || '100') || 100
-  return { width, height }
-}
-
-function svgDataUri(svg: string) {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
-
-function isEditablePixelGrid(item: PatternAsset) {
-  return Boolean(item.grid && item.grid.width === item.grid.height && EDITABLE_GRID_SIZES.has(item.grid.width) && !item.meta?.cropped)
-}
-
+function downloadText(text: string, filename: string, type: string) { const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1200) }
+function svgDimensions(svg: string) { const doc = new DOMParser().parseFromString(svg, 'image/svg+xml'); const root = doc.documentElement; const vb = root.getAttribute('viewBox')?.trim().split(/[ ,]+/).map(Number); if (vb && vb.length === 4 && vb.every(Number.isFinite)) return { width: Math.abs(vb[2]) || 100, height: Math.abs(vb[3]) || 100 }; return { width: Number.parseFloat(root.getAttribute('width') || '100') || 100, height: Number.parseFloat(root.getAttribute('height') || '100') || 100 } }
+function isEditablePixelGrid(item: PatternAsset) { return Boolean(item.grid && item.grid.width === item.grid.height && EDITABLE_GRID_SIZES.has(item.grid.width) && !item.meta?.cropped) }
+function luxuryIsScarf(item: PatternAsset) { return isLuxuryScarf(item.luxury) }
 function assetDescription(item: PatternAsset) {
+  if (item.luxury && isLuxuryScarf(item.luxury)) return `${item.luxury.product} composition · ${item.luxury.physicalSizeCm}×${item.luxury.physicalSizeCm} cm`
   if (item.luxury) return `${item.luxury.layout} luxury monogram · ${item.luxury.tileWidth}×${item.luxury.tileHeight} seamless tile`
   if (item.camo) return `${item.camo.mode} procedural camouflage · seed ${item.camo.seed}`
-  if (item.grid) {
-    const size = `${item.grid.width}×${item.grid.height}`
-    if (item.meta?.cropped) return `${size} cropped reusable motif`
-    if (isEditablePixelGrid(item)) return `${size} editable pixel grid`
-    return `${size} reusable grid asset`
-  }
-  return item.sourceType.replace('-', ' ')
+  if (item.grid) { const size = `${item.grid.width}×${item.grid.height}`; if (item.meta?.cropped) return `${size} cropped reusable motif`; if (isEditablePixelGrid(item)) return `${size} editable pixel grid`; return `${size} reusable grid asset` }
+  return item.sourceType.replaceAll('-', ' ')
 }
 
 export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpenCamouflage, onOpenLuxury }: Props) {
   const [items, setItems] = useState<PatternAsset[]>(() => loadPatternLibrary())
   const [query, setQuery] = useState('')
-  const [message, setMessage] = useState('Master tiles, procedural generators and reusable motifs can be shared across PatternForge builders.')
-  const jsonInputRef = useRef<HTMLInputElement>(null)
-  const svgInputRef = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState('Pattern masters and finished compositions can be reused across PatternForge builders.')
+  const jsonInputRef = useRef<HTMLInputElement>(null); const svgInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { const refresh = () => setItems(loadPatternLibrary()); window.addEventListener(libraryEventName(), refresh); return () => window.removeEventListener(libraryEventName(), refresh) }, [])
+  const filtered = useMemo(() => { const q = query.trim().toLowerCase(); if (!q) return items; return items.filter((item) => `${item.name} ${item.sourceType} ${(item.tags ?? []).join(' ')} ${item.meta?.cropped ? 'cropped motif' : ''} ${item.camo?.mode ?? ''} ${item.luxury && isLuxuryScarf(item.luxury) ? item.luxury.product : item.luxury?.layout ?? ''}`.toLowerCase().includes(q)) }, [items, query])
 
-  useEffect(() => {
-    const refresh = () => setItems(loadPatternLibrary())
-    window.addEventListener(libraryEventName(), refresh)
-    return () => window.removeEventListener(libraryEventName(), refresh)
-  }, [])
+  async function importJsonFiles(files: FileList | null) { if (!files?.length) return; let count = 0; for (const file of Array.from(files)) { try { importPatternAssetJson(await file.text()); count++ } catch (error) { setMessage(error instanceof Error ? error.message : `Could not import ${file.name}`) } } if (count) setMessage(`${count} PatternForge JSON asset${count > 1 ? 's' : ''} imported.`) }
+  async function importSvgFiles(files: FileList | null) { if (!files?.length) return; let count = 0; for (const file of Array.from(files)) { if (!file.name.toLowerCase().endsWith('.svg')) continue; const svg = await file.text(); const dims = svgDimensions(svg); savePatternAsset({ name: file.name.replace(/\.svg$/i, ''), sourceType: 'imported-svg', svg, meta: { width: dims.width, height: dims.height } }); count++ } if (count) setMessage(`${count} SVG asset${count > 1 ? 's' : ''} added to My Patterns.`) }
+  function rename(item: PatternAsset) { const next = window.prompt('Rename pattern', item.name); if (!next?.trim()) return; renamePatternAsset(item.id, next); setMessage(`Renamed to ${next.trim()}.`) }
+  function remove(item: PatternAsset) { if (!window.confirm(`Delete “${item.name}” from My Patterns?`)) return; deletePatternAsset(item.id); setMessage(`${item.name} deleted.`) }
+  function duplicate(item: PatternAsset) { duplicatePatternAsset(item.id); setMessage(`${item.name} duplicated.`) }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((item) => `${item.name} ${item.sourceType} ${(item.tags ?? []).join(' ')} ${item.meta?.cropped ? 'cropped motif' : ''} ${item.camo?.mode ?? ''} ${item.camo?.presetId ?? ''} ${item.luxury?.layout ?? ''}`.toLowerCase().includes(q))
-  }, [items, query])
-
-  function rename(item: PatternAsset) {
-    const next = window.prompt('Rename pattern', item.name)
-    if (!next?.trim()) return
-    renamePatternAsset(item.id, next)
-    setMessage(`Renamed to ${next.trim()}.`)
-  }
-
-  function remove(item: PatternAsset) {
-    if (!window.confirm(`Delete “${item.name}” from My Patterns?`)) return
-    deletePatternAsset(item.id)
-    setMessage(`${item.name} deleted from this browser library.`)
-  }
-
-  function duplicate(item: PatternAsset) {
-    duplicatePatternAsset(item.id)
-    setMessage(`${item.name} duplicated.`)
-  }
-
-  function exportSvg(item: PatternAsset) {
-    downloadText(patternAssetToSvg(item), `${slug(item.name)}.svg`, 'image/svg+xml;charset=utf-8')
-  }
-
-  function exportJson(item: PatternAsset) {
-    downloadText(exportPatternAssetJson(item), `${slug(item.name)}.pattern.json`, 'application/json;charset=utf-8')
-  }
-
-  async function importJsonFiles(files: FileList | null) {
-    if (!files?.length) return
-    let count = 0
-    for (const file of Array.from(files)) {
-      try {
-        importPatternAssetJson(await file.text())
-        count++
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : `Could not import ${file.name}`)
-      }
-    }
-    if (count) setMessage(`${count} PatternForge JSON asset${count > 1 ? 's' : ''} imported.`)
-  }
-
-  async function importSvgFiles(files: FileList | null) {
-    if (!files?.length) return
-    let count = 0
-    for (const file of Array.from(files)) {
-      if (!file.name.toLowerCase().endsWith('.svg')) continue
-      const svg = await file.text()
-      const dims = svgDimensions(svg)
-      savePatternAsset({ name: file.name.replace(/\.svg$/i, ''), sourceType: 'imported-svg', svg, meta: { width: dims.width, height: dims.height } })
-      count++
-    }
-    if (count) setMessage(`${count} SVG pattern asset${count > 1 ? 's' : ''} added to My Patterns.`)
-  }
-
-  return (
-    <div className="v11-library-shell v111-library-shell">
-      <header className="v11-library-head">
-        <div><b>My Pattern Library</b><span>Pixel masters, Camouflage, Luxury Monograms, Woven templates, cropped motifs and imported assets.</span></div>
-        <div><button onClick={onOpenPixel}>+ Pixel Pattern</button><button onClick={onOpenCamouflage}>+ Camouflage</button><button onClick={onOpenLuxury}>+ Luxury Monogram</button><button onClick={() => jsonInputRef.current?.click()}>Import Pattern JSON</button><button onClick={() => svgInputRef.current?.click()}>Import SVG</button></div>
-        <input ref={jsonInputRef} hidden type="file" accept=".json,application/json" multiple onChange={(event) => importJsonFiles(event.target.files)} />
-        <input ref={svgInputRef} hidden type="file" accept=".svg,image/svg+xml" multiple onChange={(event) => importSvgFiles(event.target.files)} />
-      </header>
-
-      <div className="v11-library-toolbar">
-        <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, luxury, camouflage, crop, motif, source or tag…" /></label>
-        <div><b>{filtered.length}</b><span>pattern assets</span></div>
-      </div>
-
-      <main className="v11-library-main">
-        {!filtered.length ? (
-          <div className="v11-library-empty"><b>No saved patterns yet</b><p>Create a Pixel master tile, procedural Camouflage, Luxury Monogram, Woven template, or import an SVG / PatternForge JSON file.</p><div className="v12-empty-actions"><button onClick={onOpenPixel}>Open Pixel Pattern</button><button onClick={onOpenCamouflage}>Open Camouflage</button><button onClick={onOpenLuxury}>Open Luxury Suite</button></div></div>
-        ) : (
-          <div className="v11-library-grid">
-            {filtered.map((item) => {
-              const preview = patternAssetToSvg(item)
-              const editable = isEditablePixelGrid(item)
-              const editableCamo = Boolean(item.camo && item.sourceType === 'camouflage')
-              const editableLuxury = Boolean(item.luxury && item.sourceType === 'luxury-monogram')
-              return (
-                <article key={item.id} className={`v11-pattern-card ${item.meta?.cropped ? 'v111-cropped-card' : ''} ${editableCamo ? 'v12-camo-card' : ''} ${editableLuxury ? 'v14-luxury-card' : ''}`}>
-                  <div className="v11-pattern-preview"><img src={svgDataUri(preview)} alt={`${item.name} pattern preview`} /></div>
-                  <div className="v11-pattern-meta">
-                    <div><b>{item.name}</b><span>{assetDescription(item)}</span></div>
-                    <small>{item.palette?.length ?? item.grid?.palette.length ?? 0} palette colors · updated {new Date(item.updatedAt).toLocaleDateString()}</small>
-                    {item.meta?.cropped ? <em className="v111-motif-badge">CROPPED MOTIF · READY FOR OTHER BUILDERS</em> : null}
-                    {editableCamo ? <em className="v12-camo-badge">PROCEDURAL CAMO · EDITABLE SEED + SETTINGS</em> : null}
-                    {editableLuxury ? <em className="v14-luxury-badge">LUXURY MONOGRAM · EDITABLE LAYOUT + ROLES</em> : null}
-                  </div>
-                  <div className="v11-use-row v115-use-row">
-                    <button onClick={() => onUsePattern(item, 'seamless')}>Use in Seamless</button>
-                    <button onClick={() => onUsePattern(item, 'repeat')}>Use in Repeat Layout</button>
-                    <button onClick={() => onUsePattern(item, 'guides')}>Use in Layout</button>
-                    <button onClick={() => onUsePattern(item, 'woven')}>Use in Woven</button>
-                    {editable ? <button className="active" onClick={() => onUsePattern(item, 'pixel')}>Edit Grid</button> : null}
-                    {editableCamo ? <button className="active" onClick={() => onUsePattern(item, 'camouflage')}>Edit Camo</button> : null}
-                    {editableLuxury ? <button className="active" onClick={() => onUsePattern(item, 'luxury')}>Edit Monogram</button> : null}
-                  </div>
-                  <div className="v11-card-actions"><button onClick={() => exportSvg(item)}>SVG</button><button onClick={() => exportJson(item)}>JSON</button><button onClick={() => rename(item)}>Rename</button><button onClick={() => duplicate(item)}>Duplicate</button><button className="v09-danger" onClick={() => remove(item)}>Delete</button></div>
-                </article>
-              )
-            })}
-          </div>
-        )}
-      </main>
-      <footer className="v11-library-status"><span>{message}</span><b>MASTER + PROCEDURAL + LUXURY + MOTIF LIBRARY</b></footer>
-    </div>
-  )
+  return <div className="v11-library-shell v111-library-shell"><header className="v11-library-head"><div><b>My Pattern Library</b><span>Pixel, Camouflage, Luxury Monograms, Scarf/Hijab compositions, Woven and imported assets.</span></div><div><button onClick={onOpenPixel}>+ Pixel Pattern</button><button onClick={onOpenCamouflage}>+ Camouflage</button><button onClick={onOpenLuxury}>+ Luxury Suite</button><button onClick={() => jsonInputRef.current?.click()}>Import Pattern JSON</button><button onClick={() => svgInputRef.current?.click()}>Import SVG</button></div><input ref={jsonInputRef} hidden type="file" accept=".json,application/json" multiple onChange={(e) => importJsonFiles(e.target.files)}/><input ref={svgInputRef} hidden type="file" accept=".svg,image/svg+xml" multiple onChange={(e) => importSvgFiles(e.target.files)}/></header>
+    <div className="v11-library-toolbar"><label><span>Search</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search monogram, hijab, scarf, camouflage, motif…"/></label><div><b>{filtered.length}</b><span>pattern assets</span></div></div>
+    <main className="v11-library-main">{!filtered.length ? <div className="v11-library-empty"><b>No saved patterns yet</b><p>Create a pattern or composition, then save it here for reuse.</p><div className="v12-empty-actions"><button onClick={onOpenPixel}>Pixel Pattern</button><button onClick={onOpenLuxury}>Luxury Suite</button></div></div> : <div className="v11-library-grid">{filtered.map((item) => { const preview = patternAssetToSvg(item); const editable = isEditablePixelGrid(item); const editableCamo = Boolean(item.camo && item.sourceType === 'camouflage'); const editableLuxury = Boolean(item.luxury && item.sourceType === 'luxury-monogram'); const editableScarf = Boolean(item.luxury && item.sourceType === 'luxury-composition' && luxuryIsScarf(item)); return <article key={item.id} className={`v11-pattern-card ${item.meta?.cropped ? 'v111-cropped-card' : ''} ${editableCamo ? 'v12-camo-card' : ''} ${(editableLuxury || editableScarf) ? 'v14-luxury-card' : ''}`}><div className="v11-pattern-preview"><img src={svgDataUri(preview)} alt={`${item.name} preview`}/></div><div className="v11-pattern-meta"><div><b>{item.name}</b><span>{assetDescription(item)}</span></div><small>{item.palette?.length ?? item.grid?.palette.length ?? 0} palette colors · updated {new Date(item.updatedAt).toLocaleDateString()}</small>{editableCamo ? <em className="v12-camo-badge">PROCEDURAL CAMO · EDITABLE</em> : null}{editableLuxury ? <em className="v14-luxury-badge">LUXURY MONOGRAM · EDITABLE</em> : null}{editableScarf ? <em className="v14-luxury-badge">SCARF / HIJAB · EDITABLE COMPOSITION</em> : null}</div><div className="v11-use-row v115-use-row"><button onClick={() => onUsePattern(item, 'seamless')}>Use in Seamless</button><button onClick={() => onUsePattern(item, 'repeat')}>Use in Repeat Layout</button><button onClick={() => onUsePattern(item, 'guides')}>Use in Layout</button><button onClick={() => onUsePattern(item, 'scarf')}>Use in Scarf / Hijab</button>{editable ? <button className="active" onClick={() => onUsePattern(item, 'pixel')}>Edit Grid</button> : null}{editableCamo ? <button className="active" onClick={() => onUsePattern(item, 'camouflage')}>Edit Camo</button> : null}{editableLuxury ? <button className="active" onClick={() => onUsePattern(item, 'luxury')}>Edit Monogram</button> : null}{editableScarf ? <button className="active" onClick={() => onUsePattern(item, 'scarf')}>Edit Scarf / Hijab</button> : null}</div><div className="v11-card-actions"><button onClick={() => downloadText(patternAssetToSvg(item), `${slug(item.name)}.svg`, 'image/svg+xml;charset=utf-8')}>SVG</button><button onClick={() => downloadText(exportPatternAssetJson(item), `${slug(item.name)}.pattern.json`, 'application/json;charset=utf-8')}>JSON</button><button onClick={() => rename(item)}>Rename</button><button onClick={() => duplicate(item)}>Duplicate</button><button className="v09-danger" onClick={() => remove(item)}>Delete</button></div></article> })}</div>}</main><footer className="v11-library-status"><span>{message}</span><b>MASTER + LUXURY + COMPOSITION LIBRARY</b></footer>
+  </div>
 }

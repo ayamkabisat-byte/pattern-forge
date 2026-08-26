@@ -1,4 +1,4 @@
-import { luxuryMotifById } from './motifs'
+import { resolveLuxuryMotif } from './motifs'
 import type { LuxuryMonogramData, LuxuryMotifInstance } from './types'
 
 const esc = (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -32,6 +32,7 @@ export function initialLuxuryMonogram(): LuxuryMonogramData {
     backgroundMode: 'solid',
     backgroundColor: 2,
     exportLongSide: 4096,
+    customShapes: [],
   }
 }
 
@@ -88,10 +89,11 @@ function roleColor(instance: LuxuryMotifInstance, role: string, palette: string[
   return palette[index] ?? palette[0] ?? '#000000'
 }
 
-function motifBody(instance: LuxuryMotifInstance, palette: string[]) {
-  const motif = luxuryMotifById(instance.motifId)
+function motifBody(instance: LuxuryMotifInstance, palette: string[], data: LuxuryMonogramData) {
+  const motif = resolveLuxuryMotif(instance.motifId, data.customShapes ?? [])
   let body = motif.body
   for (const role of motif.roles) body = body.replaceAll(`{{${role}}}`, esc(roleColor(instance, role, palette)))
+  body = body.replaceAll('{{primary}}', esc(roleColor(instance, 'primary', palette)))
   return body
 }
 
@@ -102,11 +104,11 @@ function rotationFor(indexX: number, indexY: number, data: LuxuryMonogramData, b
   return base + (data.alternateRotation === '180' ? 180 : 90)
 }
 
-function motifGroup(instance: LuxuryMotifInstance, x: number, y: number, rotation: number, mirrorX: boolean, mirrorY: boolean, palette: string[], key: string) {
+function motifGroup(instance: LuxuryMotifInstance, x: number, y: number, rotation: number, mirrorX: boolean, mirrorY: boolean, palette: string[], key: string, data: LuxuryMonogramData) {
   if (!instance.enabled) return ''
   const sx = instance.scale * (mirrorX ? -1 : 1)
   const sy = instance.scale * (mirrorY ? -1 : 1)
-  return `<g data-instance="${key}" transform="translate(${x.toFixed(3)} ${y.toFixed(3)}) rotate(${rotation.toFixed(3)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(-50 -50)">${motifBody(instance, palette)}</g>`
+  return `<g data-instance="${key}" transform="translate(${x.toFixed(3)} ${y.toFixed(3)}) rotate(${rotation.toFixed(3)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(-50 -50)">${motifBody(instance, palette, data)}</g>`
 }
 
 function anchorPosition(ix: number, iy: number, data: LuxuryMonogramData, metrics: LuxurySeamlessMetrics) {
@@ -146,10 +148,10 @@ function renderPatternPieces(data: LuxuryMonogramData, renderWidth: number, rend
       const pos = anchorPosition(ix, iy, data, metrics)
       const mirrorX = data.mainMotif.mirrorX !== (data.mirrorColumns && mod(ix, 2) === 1)
       const mirrorY = data.mainMotif.mirrorY !== (data.mirrorRows && mod(iy, 2) === 1)
-      pieces.push(motifGroup(data.mainMotif, pos.x, pos.y, rotationFor(ix, iy, data, data.mainMotif.rotation), mirrorX, mirrorY, data.palette, `main-${ix}-${iy}`))
+      pieces.push(motifGroup(data.mainMotif, pos.x, pos.y, rotationFor(ix, iy, data, data.mainMotif.rotation), mirrorX, mirrorY, data.palette, `main-${ix}-${iy}`, data))
       if (data.fillerMotif.enabled) {
         const filler = fillerPosition(ix, iy, data, metrics)
-        pieces.push(motifGroup(data.fillerMotif, filler.x, filler.y, rotationFor(ix, iy, data, data.fillerMotif.rotation), data.fillerMotif.mirrorX, data.fillerMotif.mirrorY, data.palette, `filler-${ix}-${iy}`))
+        pieces.push(motifGroup(data.fillerMotif, filler.x, filler.y, rotationFor(ix, iy, data, data.fillerMotif.rotation), data.fillerMotif.mirrorX, data.fillerMotif.mirrorY, data.palette, `filler-${ix}-${iy}`, data))
       }
     }
   }
