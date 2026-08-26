@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import TextileTemplateMaker from './TextileTemplateMaker'
+import { peekPendingPattern } from '../patternLibrary'
+import TextileTemplateLibraryWrapper from './TextileTemplateLibraryWrapper'
 import WovenTextileBuilder from './WovenTextileBuilder'
 
 type Props = {
@@ -11,7 +12,7 @@ type Props = {
 type Mode = 'templates' | 'custom'
 
 export default function WovenTextileWorkspace({ onOpenSeamless, onOpenGuides, onOpenPlaid }: Props) {
-  const [mode, setMode] = useState<Mode>('templates')
+  const [mode, setMode] = useState<Mode>(() => peekPendingPattern('woven') ? 'custom' : 'templates')
 
   return (
     <div className="v102-textile-workspace">
@@ -32,7 +33,7 @@ export default function WovenTextileWorkspace({ onOpenSeamless, onOpenGuides, on
 
       <div className="v102-textile-content">
         {mode === 'templates' ? (
-          <TextileTemplateMaker onOpenCustom={() => setMode('custom')} onOpenPlaid={onOpenPlaid} />
+          <TextileTemplateLibraryWrapper onOpenCustom={() => setMode('custom')} onOpenPlaid={onOpenPlaid} />
         ) : (
           <WovenTextileBuilder onOpenSeamless={onOpenSeamless} onOpenGuides={onOpenGuides} onOpenPlaid={onOpenPlaid} />
         )}
