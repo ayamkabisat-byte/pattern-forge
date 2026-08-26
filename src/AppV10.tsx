@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AppV08 from './AppV08'
+import CamouflageWorkspace from './components/CamouflageWorkspace'
 import FreeformPatternEditorV091 from './components/FreeformPatternEditorV091'
 import LayoutGuideBuilder from './components/LayoutGuideBuilder'
 import MyPatternLibraryV111 from './components/MyPatternLibraryV111'
@@ -9,7 +10,7 @@ import RepeatLayoutWorkspace from './components/RepeatLayoutWorkspace'
 import WovenTextileWorkspace from './components/WovenTextileWorkspace'
 import { patternAssetToSvg, setPendingPattern, type PatternAsset, type PatternTarget } from './patternLibrary'
 
-type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'library' | 'legacy'
+type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'camouflage' | 'library' | 'legacy'
 
 function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange: (workspace: Workspace) => void }) {
   const items: Array<{ id: Workspace; label: string; hint: string }> = [
@@ -19,6 +20,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
     { id: 'pixel', label: 'Pixel Pattern', hint: 'Grid · 4K SVG · Crop' },
     { id: 'repeat', label: 'Repeat Layout', hint: 'Grid · Brick · Hex' },
+    { id: 'camouflage', label: 'Camouflage', hint: 'Digital · Organic · Seed' },
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
@@ -27,7 +29,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav v11-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.1.5 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.2 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -36,7 +38,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
           </button>
         ))}
       </div>
-      <div className="v10-nav-rule">Build once · exact repeat · scale SVG · reuse.</div>
+      <div className="v10-nav-rule">Build · generate · repeat · reuse.</div>
     </nav>
   )
 }
@@ -71,6 +73,12 @@ export default function AppV10() {
     if (target === 'repeat') {
       setPendingPattern('repeat', asset)
       setWorkspace('repeat')
+      return
+    }
+
+    if (target === 'camouflage') {
+      setPendingPattern('camouflage', asset)
+      setWorkspace('camouflage')
       return
     }
 
@@ -134,14 +142,18 @@ export default function AppV10() {
         <RepeatLayoutWorkspace onOpenLibrary={() => setWorkspace('library')} onOpenPixel={() => setWorkspace('pixel')} />
       ) : null}
 
+      {workspace === 'camouflage' ? (
+        <CamouflageWorkspace onOpenLibrary={() => setWorkspace('library')} onOpenRepeat={() => setWorkspace('repeat')} onOpenPixel={() => setWorkspace('pixel')} />
+      ) : null}
+
       {workspace === 'library' ? (
-        <MyPatternLibraryV111 onUsePattern={usePattern} onOpenPixel={() => setWorkspace('pixel')} />
+        <MyPatternLibraryV111 onUsePattern={usePattern} onOpenPixel={() => setWorkspace('pixel')} onOpenCamouflage={() => setWorkspace('camouflage')} />
       ) : null}
 
       {workspace === 'legacy' ? (
         <div className="v10-legacy-shell">
           <div className="v10-legacy-note">
-            <div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Grid, Brick, Brick Column and Hex Row now have a dedicated Repeat Layout workspace with exact SVG bounds.</span></div>
+            <div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Grid, Brick, Brick Column and Hex Row now live in Repeat Layout; procedural Digital and Organic camouflage live in Camouflage.</span></div>
             <button onClick={() => setWorkspace('repeat')}>Open Repeat Layout</button>
           </div>
           <div className="v10-legacy-scroll"><AppV08 /></div>
