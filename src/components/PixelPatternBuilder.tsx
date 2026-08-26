@@ -11,6 +11,7 @@ type Bounds = { x: number; y: number; width: number; height: number }
 
 const GRID_SIZES: GridSize[] = [8, 16, 32, 64, 128, 256]
 const REPEATS: RepeatCount[] = [1, 2, 3, 6, 12]
+const EXPORT_PRESETS = [1024, 2048, 4096, 6000, 8000]
 const DEFAULT_PALETTE = ['#15241F', '#D4B15A', '#7E2637', '#E9DEC7', '#2F5A4A', '#B9673B', '#27211C', '#F2EEE4']
 const TRANSPARENT = 255
 const HISTORY_LIMIT = 35
@@ -18,6 +19,12 @@ const HISTORY_LIMIT = 35
 const mod = (value: number, size: number) => ((value % size) + size) % size
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const slug = (name: string) => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pixel-pattern'
+
+function scaledDimensions(width: number, height: number, longSide: number) {
+  const logicalLong = Math.max(width, height) || 1
+  const scale = longSide / logicalLong
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }
+}
 
 function downloadText(text: string, filename: string, type: string) {
   const blob = new Blob([text], { type })
@@ -106,6 +113,7 @@ export default function PixelPatternBuilder({ onOpenLibrary, onOpenWoven }: Prop
   const [moveStep, setMoveStep] = useState(1)
   const [removeCropBackground, setRemoveCropBackground] = useState(true)
   const [detectedCrop, setDetectedCrop] = useState('auto')
+  const [exportLongSide, setExportLongSide] = useState(4096)
   const editCanvasRef = useRef<HTMLCanvasElement>(null)
   const repeatCanvasRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef(false)
@@ -128,6 +136,7 @@ export default function PixelPatternBuilder({ onOpenLibrary, onOpenWoven }: Prop
     }
     const loaded = decodeGridCells(pending.grid.cellsBase64, size * size)
     const bg = dominantValue(loaded)
+    const savedExportSize = Number(pending.meta?.exportLongSide)
     setGridSize(size)
     setCellsNow(loaded)
     setPalette([...pending.grid.palette])
@@ -135,6 +144,7 @@ export default function PixelPatternBuilder({ onOpenLibrary, onOpenWoven }: Prop
     setPatternName(pending.name)
     setBackgroundMode(loaded.some((v) => v === TRANSPARENT) ? 'transparent' : 'solid')
     if (bg !== TRANSPARENT) setBackgroundColor(Math.min(bg, pending.grid.palette.length - 1))
+    if (Number.isFinite(savedExportSize) && savedExportSize > 0) setExportLongSide(clamp(Math.round(savedExportSize), 64, 20000))
     setUndoStack([]); setRedoStack([])
     setMessage(`${pending.name} loaded from My Patterns.`)
   }, [])
@@ -357,7 +367,7 @@ export default function PixelPatternBuilder({ onOpenLibrary, onOpenWoven }: Prop
 
   function currentAsset(): PatternAsset {
     const stamp = new Date().toISOString()
-    return { id: 'preview', name: patternName.trim() || 'Pixel Pattern', sourceType: 'grid', createdAt: stamp, updatedAt: stamp, palette: [...palette], grid: { width: gridSize, height: gridSize, cellsBase64: encodeGridCells(cellsRef.current), palette: [...palette], transparentValue: TRANSPARENT }, meta: { symmetry, brushSize, backgroundMode, backgroundColor } }
+    return { id: 'preview', name: patternName.trim() || 'Pixel Pattern', sourceType: 'grid', createdAt: stamp, updatedAt: stamp, palette: [...palette], grid: { width: gridSize, height: gridSize, cellsBase64: encodeGridCells(cellsRef.current), palette: [...palette], transparentValue: TRANSPARENT }, meta: { symmetry, brushSize, backgroundMode, backgroundColor, exportLongSide } }
   }
 
   function cropAsset(): PatternAsset | null {
@@ -369,18 +379,18 @@ export default function PixelPatternBuilder({ onOpenLibrary, onOpenWoven }: Prop
     for (let y = 0; y < b.height; y++) for (let x = 0; x < b.width; x++) { const source = centered[(b.y + y) * gridSize + b.x + x]; cropped[y * b.width + x] = removeCropBackground && source === bg ? TRANSPARENT : source }
     setDetectedCrop(`${b.width}×${b.height}`)
     const stamp = new Date().toISOString()
-    return { id: 'crop-preview', name: `${patternName.trim() || 'Pixel Pattern'} Crop`, sourceType: 'grid', createdAt: stamp, updatedAt: stamp, palette: [...palette], grid: { width: b.width, height: b.height, cellsBase64: encodeGridCells(cropped), palette: [...palette], transparentValue: TRANSPARENT }, tags: ['pixel-crop', 'motif'], meta: { cropped: true, sourceGrid: `${gridSize}x${gridSize}`, transparentCropBackground: removeCropBackground } }
+    return { id: 'crop-preview', name: `${patternName.trim() || 'Pixel Pattern'} Crop`, sourceType: 'grid', createdAt: stamp, updatedAt: stamp, palette: [...palette], grid: { width: b.width, height: b.height, cellsBase64: encodeGridCells(cropped), palette: [...palette], transparentValue: TRANSPARENT }, tags: ['pixel-crop', 'motif'], meta: { cropped: true, sourceGrid: `${gridSize}x${gridSize}`, transparentCropBackground: removeCropBackground, exportLongSide } }
   }
 
-  function saveMaster() { const a = currentAsset(); savePatternAsset({ name: a.name, sourceType: 'grid', palette: a.palette, grid: a.grid, meta: a.meta }); setMessage(`${a.name} saved as editable master tile.`) }
-  function saveCrop() { const a = cropAsset(); if (!a) { setMessage('No motif detected to crop.'); return } savePatternAsset({ name: a.name, sourceType: 'grid', palette: a.palette, grid: a.grid, tags: a.tags, meta: a.meta }); setMessage(`${a.name} saved as reusable motif.`) }
-  function exportSvg() { const a = currentAsset(); downloadText(patternAssetToSvg(a), `${slug(a.name)}-${gridSize}x${gridSize}-seamless.svg`, 'image/svg+xml;charset=utf-8') }
-  function exportCrop() { const a = cropAsset(); if (!a) { setMessage('No motif detected to crop.'); return } downloadText(patternAssetToSvg(a), `${slug(a.name)}-${a.grid?.width}x${a.grid?.height}-motif.svg`, 'image/svg+xml;charset=utf-8') }
+  function saveMaster() { const a = currentAsset(); savePatternAsset({ name: a.name, sourceType: 'grid', palette: a.palette, grid: a.grid, meta: a.meta }); setMessage(`${a.name} saved as editable master tile with ${exportLongSide}px SVG output size.`) }
+  function saveCrop() { const a = cropAsset(); if (!a) { setMessage('No motif detected to crop.'); return } savePatternAsset({ name: a.name, sourceType: 'grid', palette: a.palette, grid: a.grid, tags: a.tags, meta: a.meta }); setMessage(`${a.name} saved as reusable motif with ${exportLongSide}px long-side SVG output.`) }
+  function exportSvg() { const a = currentAsset(); const d = scaledDimensions(gridSize, gridSize, exportLongSide); downloadText(patternAssetToSvg(a), `${slug(a.name)}-${d.width}x${d.height}-seamless.svg`, 'image/svg+xml;charset=utf-8'); setMessage(`Seamless SVG exported at ${d.width}×${d.height}; logical grid remains ${gridSize}×${gridSize}.`) }
+  function exportCrop() { const a = cropAsset(); if (!a || !a.grid) { setMessage('No motif detected to crop.'); return } const d = scaledDimensions(a.grid.width, a.grid.height, exportLongSide); downloadText(patternAssetToSvg(a), `${slug(a.name)}-${d.width}x${d.height}-motif.svg`, 'image/svg+xml;charset=utf-8'); setMessage(`Cropped SVG exported at ${d.width}×${d.height} with aspect ratio preserved.`) }
   function exportJson() { const a = currentAsset(); downloadText(exportPatternAssetJson(a), `${slug(a.name)}-${gridSize}x${gridSize}.pattern.json`, 'application/json;charset=utf-8') }
 
-  return <div className="v10-builder-shell v11-pixel-shell v113-pixel-shell">
+  return <div className="v10-builder-shell v11-pixel-shell v113-pixel-shell v114-pixel-shell">
     <aside className="v10-panel v10-panel-left">
-      <section><h2>Grid Size</h2><div className="v11-grid-sizes">{GRID_SIZES.map((s) => <button key={s} className={gridSize === s ? 'active' : ''} onClick={() => setGrid(s)}>{s}×{s}</button>)}</div><small>8–32 for bold pixel motifs; 64–256 for complex geometric work.</small></section>
+      <section><h2>Grid Size</h2><div className="v11-grid-sizes">{GRID_SIZES.map((s) => <button key={s} className={gridSize === s ? 'active' : ''} onClick={() => setGrid(s)}>{s}×{s}</button>)}</div><small>Grid size controls drawing complexity only. SVG document size is set separately on the right.</small></section>
 
       <section className="v113-background-section"><h2>Canvas Background</h2><div className="v113-bg-modes"><button className={backgroundMode === 'transparent' ? 'active' : ''} onClick={() => setBackgroundMode('transparent')}>Transparent</button><button className={backgroundMode === 'solid' ? 'active' : ''} onClick={() => setBackgroundMode('solid')}>Solid</button></div><label><span>Solid background slot</span><select value={backgroundColor} onChange={(e) => setBackgroundColor(Number(e.target.value))}>{palette.map((c, i) => <option key={`${c}-${i}`} value={i}>Slot {i + 1} · {c.toUpperCase()}</option>)}</select></label><div className="v113-bg-actions"><button onClick={clearToTransparent}>Clear to Transparent</button><button onClick={applySolidBackground}>Apply Solid Background</button></div><small>Transparent cells stay empty in SVG/JSON and are ideal for motifs reused in other builders.</small></section>
 
@@ -393,13 +403,14 @@ export default function PixelPatternBuilder({ onOpenLibrary, onOpenWoven }: Prop
       <section className="v10-cultural-note"><h2>Pattern-first workflow</h2><p>Keep the master tile for seamless editing, then save a tight transparent crop when you need the motif itself elsewhere.</p><button onClick={onOpenLibrary}>Open My Patterns</button></section>
     </aside>
 
-    <main className="v10-center-stage"><div className="v10-stage-head"><div><b>{patternName || 'Untitled Pixel Pattern'}</b><span>{gridSize}×{gridSize} · {usedColors} colors · {backgroundMode} · {tool}</span></div><div className="v10-view-buttons"><button className={view === 'edit' ? 'active' : ''} onClick={() => setView('edit')}>Edit Tile</button><button className={view === 'repeat' ? 'active' : ''} onClick={() => setView('repeat')}>Repeat Proof</button></div></div><div className="v10-preview-zone v11-pixel-stage">{view === 'edit' ? <canvas ref={editCanvasRef} className="v11-pixel-canvas v113-interactive-canvas" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onContextMenu={(e) => e.preventDefault()}/> : <canvas ref={repeatCanvasRef} className="v11-repeat-canvas"/>}</div><div className="v10-stage-status"><span>{message}</span><b>{view === 'edit' ? 'MASTER TILE EDITOR' : `${repeatCount}×${repeatCount} REPEAT PROOF`}</b></div></main>
+    <main className="v10-center-stage"><div className="v10-stage-head"><div><b>{patternName || 'Untitled Pixel Pattern'}</b><span>{gridSize}×{gridSize} grid · {exportLongSide}px SVG · {usedColors} colors · {backgroundMode} · {tool}</span></div><div className="v10-view-buttons"><button className={view === 'edit' ? 'active' : ''} onClick={() => setView('edit')}>Edit Tile</button><button className={view === 'repeat' ? 'active' : ''} onClick={() => setView('repeat')}>Repeat Proof</button></div></div><div className="v10-preview-zone v11-pixel-stage">{view === 'edit' ? <canvas ref={editCanvasRef} className="v11-pixel-canvas v113-interactive-canvas" onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} onContextMenu={(e) => e.preventDefault()}/> : <canvas ref={repeatCanvasRef} className="v11-repeat-canvas"/>}</div><div className="v10-stage-status"><span>{message}</span><b>{view === 'edit' ? 'MASTER TILE EDITOR' : `${repeatCount}×${repeatCount} REPEAT PROOF`}</b></div></main>
 
     <aside className="v10-panel v10-panel-right">
       <section><h2>Pattern Palette · up to 16 HEX</h2><textarea className="v10-hex-input v11-pixel-hex" rows={4} value={quickHex} onChange={(e) => setQuickHex(e.target.value)}/><button className="v10-primary-action" onClick={applyHex}>Apply HEX Palette</button><div className="v11-pixel-palette">{palette.map((color,index) => <button key={`${color}-${index}`} className={activeColor === index ? 'active' : ''} onClick={() => setActiveColor(index)}><i style={{background:color}}/><span>{index + 1}</span><input aria-label={`Color ${index + 1}`} type="color" value={color} onClick={(e) => e.stopPropagation()} onChange={(e) => setPalette((p) => p.map((c,i) => i === index ? e.target.value : c))}/></button>)}</div><button className="v10-wide-button" disabled={palette.length >= 16} onClick={() => setPalette((p) => [...p,'#FFFFFF'])}>+ Add Color Slot</button></section>
       <section><h2>Repeat Proof</h2><div className="v11-repeat-buttons">{REPEATS.map((r) => <button key={r} className={repeatCount === r ? 'active' : ''} onClick={() => { setRepeatCount(r); setView('repeat') }}>{r}×{r}</button>)}</div><label className="v10-check"><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)}/> Show editor grid lines</label><small>6×6 and 12×12 help reveal unintended seams and rhythm problems.</small></section>
-      <section><h2>Save Pattern Asset</h2><label><span>Pattern name</span><input value={patternName} onChange={(e) => setPatternName(e.target.value)}/></label><button className="v10-primary-action" onClick={saveMaster}>Save Master to My Patterns</button><button className="v10-wide-button" onClick={onOpenLibrary}>Browse My Pattern Library</button></section>
-      <section><h2>Export</h2><button className="v10-primary-action" onClick={exportSvg}>Export Seamless SVG</button><button className="v10-wide-button" onClick={exportJson}>Export Editable Pattern JSON</button></section>
+      <section className="v114-export-size"><h2>SVG Output Size</h2><div className="v114-export-presets">{EXPORT_PRESETS.map((size) => <button key={size} className={exportLongSide === size ? 'active' : ''} onClick={() => setExportLongSide(size)}>{size >= 1000 ? `${size / 1000}K` : size}</button>)}</div><label><span>Custom long side</span><input type="number" min="64" max="20000" step="64" value={exportLongSide} onChange={(e) => setExportLongSide(clamp(Math.round(Number(e.target.value) || 4096), 64, 20000))}/></label><div className="v114-output-readout"><span>Master SVG <b>{exportLongSide}×{exportLongSide}</b></span><span>Logical grid <b>{gridSize}×{gridSize}</b></span></div><small>The grid stays small and editable, but exported/saved SVG assets get a practical document size. Cropped motifs preserve their aspect ratio using this value as the long side.</small></section>
+      <section><h2>Save Pattern Asset</h2><label><span>Pattern name</span><input value={patternName} onChange={(e) => setPatternName(e.target.value)}/></label><button className="v10-primary-action" onClick={saveMaster}>Save Master to My Patterns</button><button className="v10-wide-button" onClick={onOpenLibrary}>Browse My Pattern Library</button><small>SVG output size is stored with the asset, so Use in Seamless/Layout/Woven receives the larger SVG automatically.</small></section>
+      <section><h2>Export</h2><button className="v10-primary-action" onClick={exportSvg}>Export Seamless SVG · {exportLongSide}px</button><button className="v10-wide-button" onClick={exportJson}>Export Editable Pattern JSON</button></section>
       <section><h2>Other Builder</h2><button className="v10-wide-button" onClick={onOpenWoven}>Open Woven / Textile</button></section>
     </aside>
   </div>
