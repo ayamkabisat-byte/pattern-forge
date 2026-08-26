@@ -28,6 +28,7 @@ export const EXPORT_PRESETS: ExportPreset[] = [
 ]
 
 export const SPACING_PRESETS = [
+  { id: 'exact', label: 'Exact Tile', h: 0, v: 0, px: 0, py: 0 },
   { id: 'airy', label: 'Airy', h: 24, v: 24, px: 10, py: 10 },
   { id: 'balanced', label: 'Balanced', h: 8, v: 8, px: 8, py: 8 },
   { id: 'micro', label: 'Micro Gap', h: 2, v: 2, px: 5, py: 5 },
