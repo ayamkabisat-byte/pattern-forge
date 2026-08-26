@@ -3,7 +3,7 @@ import AppV08 from './AppV08'
 import FreeformPatternEditorV091 from './components/FreeformPatternEditorV091'
 import LayoutGuideBuilder from './components/LayoutGuideBuilder'
 import PlaidTartanMaker from './components/PlaidTartanMaker'
-import WovenTextileBuilder from './components/WovenTextileBuilder'
+import WovenTextileWorkspace from './components/WovenTextileWorkspace'
 
 type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'legacy'
 
@@ -12,7 +12,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'seamless', label: 'Seamless Builder', hint: 'Freeform + Radial Repeat' },
     { id: 'guides', label: 'Layout Guides', hint: 'Frame · Strip · Diagonal' },
     { id: 'plaid', label: 'Plaid / Tartan', hint: 'Template + HEX palette' },
-    { id: 'textile', label: 'Woven / Textile', hint: 'Bands · zones · motif rows' },
+    { id: 'textile', label: 'Woven / Textile', hint: 'Templates · 8 HEX · Custom SVG' },
     { id: 'legacy', label: 'Legacy Auto', hint: 'Old experimental presets' },
   ]
 
@@ -20,7 +20,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.0.1 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.0.2 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -62,7 +62,7 @@ export default function AppV10() {
       ) : null}
 
       {workspace === 'textile' ? (
-        <WovenTextileBuilder
+        <WovenTextileWorkspace
           onOpenSeamless={() => setWorkspace('seamless')}
           onOpenGuides={() => setWorkspace('guides')}
           onOpenPlaid={() => setWorkspace('plaid')}
