@@ -1,9 +1,13 @@
+import type { LuxuryCustomShape, LuxuryShapeCategory } from './types'
+
 export type LuxuryMotif = {
   id: string
   name: string
-  category: 'main' | 'filler'
+  category: LuxuryShapeCategory
   roles: string[]
   body: string
+  originalColors?: string[]
+  sourceViewBox?: string
 }
 
 export const LUXURY_MOTIFS: LuxuryMotif[] = [
@@ -26,4 +30,13 @@ export const LUXURY_MOTIFS: LuxuryMotif[] = [
 
 export const MAIN_LUXURY_MOTIFS = LUXURY_MOTIFS.filter((item) => item.category === 'main')
 export const FILLER_LUXURY_MOTIFS = LUXURY_MOTIFS.filter((item) => item.category === 'filler')
-export function luxuryMotifById(id: string) { return LUXURY_MOTIFS.find((item) => item.id === id) ?? LUXURY_MOTIFS[0] }
+
+export function resolveLuxuryMotif(id: string, customShapes: LuxuryCustomShape[] = []): LuxuryMotif {
+  const custom = customShapes.find((item) => item.id === id)
+  if (custom) return custom
+  return LUXURY_MOTIFS.find((item) => item.id === id) ?? LUXURY_MOTIFS[0]
+}
+
+export function luxuryMotifById(id: string) {
+  return resolveLuxuryMotif(id)
+}
