@@ -21,6 +21,7 @@ import './v115.css'
 import './v12.css'
 import './v14.css'
 import './v15.css'
+import './v16.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
