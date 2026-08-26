@@ -1,5 +1,5 @@
 export type PatternSourceType = 'grid' | 'woven-template' | 'imported-svg' | 'imported-json'
-export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel'
+export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat'
 
 export type GridPatternData = {
   width: number
@@ -173,7 +173,8 @@ export function patternAssetToSvg(asset: PatternAsset) {
   if (asset.grid) {
     const { width, height } = asset.grid
     const documentSize = gridSvgDocumentSize(asset, asset.grid)
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${documentSize.width}" height="${documentSize.height}" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">${gridPaths(asset.grid)}</svg>`
+    const seamless = asset.meta?.cropped ? 'false' : 'true'
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${documentSize.width}" height="${documentSize.height}" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges" data-patternforge-exact-bounds="true" data-patternforge-seamless="${seamless}">${gridPaths(asset.grid)}</svg>`
   }
   if (asset.svg) return asset.svg
   return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#20242b"/></svg>'
