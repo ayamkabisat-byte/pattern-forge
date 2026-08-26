@@ -20,7 +20,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
     { id: 'pixel', label: 'Pixel Pattern', hint: 'Grid · 4K SVG · Crop' },
     { id: 'repeat', label: 'Repeat Layout', hint: 'Grid · Brick · Hex' },
-    { id: 'camouflage', label: 'Camouflage', hint: 'Digital · Organic · Seed' },
+    { id: 'camouflage', label: 'Camouflage', hint: 'Region · Interlock · Pebble' },
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
@@ -29,7 +29,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav v11-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.2 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.3 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -153,7 +153,7 @@ export default function AppV10() {
       {workspace === 'legacy' ? (
         <div className="v10-legacy-shell">
           <div className="v10-legacy-note">
-            <div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Grid, Brick, Brick Column and Hex Row now live in Repeat Layout; procedural Digital and Organic camouflage live in Camouflage.</span></div>
+            <div><b>Legacy Auto Builder</b><span>Older specialty experiments remain here. Grid, Brick, Brick Column and Hex Row live in Repeat Layout; region-first Digital and Organic camouflage live in Camouflage.</span></div>
             <button onClick={() => setWorkspace('repeat')}>Open Repeat Layout</button>
           </div>
           <div className="v10-legacy-scroll"><AppV08 /></div>
