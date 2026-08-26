@@ -1,4 +1,4 @@
-export type DirectionalPresetId = 'parang-diagonal' | 'horizontal-row' | 'vertical-strip' | 'ornament-row' | 'sweater-row' | 'custom'
+export type DirectionalPresetId = 'parang-row' | 'parang-diagonal' | 'horizontal-row' | 'vertical-strip' | 'ornament-row' | 'sweater-row' | 'custom'
 
 export type DirectionalMotifData = {
   name: string
