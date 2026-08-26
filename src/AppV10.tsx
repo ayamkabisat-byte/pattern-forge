@@ -16,7 +16,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'guides', label: 'Layout Guides', hint: 'Frame · Strip · Diagonal' },
     { id: 'plaid', label: 'Plaid / Tartan', hint: 'Template + HEX' },
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
-    { id: 'pixel', label: 'Pixel Pattern', hint: 'Transparent · Center · Crop' },
+    { id: 'pixel', label: 'Pixel Pattern', hint: 'Grid · 4K SVG · Crop' },
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
@@ -25,7 +25,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav v11-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.1.2 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.1.4 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -34,7 +34,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
           </button>
         ))}
       </div>
-      <div className="v10-nav-rule">Build once · center · crop · reuse.</div>
+      <div className="v10-nav-rule">Build once · scale SVG · center · crop · reuse.</div>
     </nav>
   )
 }

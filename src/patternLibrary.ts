@@ -157,10 +157,23 @@ function gridPaths(grid: GridPatternData) {
   return Array.from(paths.entries()).map(([index, parts]) => `<path fill="${grid.palette[index]}" d="${parts.join('')}"/>`).join('')
 }
 
+function gridSvgDocumentSize(asset: PatternAsset, grid: GridPatternData) {
+  const configured = Number(asset.meta?.exportLongSide)
+  if (!Number.isFinite(configured) || configured <= 0) return { width: grid.width, height: grid.height }
+  const longSide = Math.max(64, Math.min(20000, Math.round(configured)))
+  const logicalLongSide = Math.max(grid.width, grid.height) || 1
+  const scale = longSide / logicalLongSide
+  return {
+    width: Math.max(1, Math.round(grid.width * scale)),
+    height: Math.max(1, Math.round(grid.height * scale)),
+  }
+}
+
 export function patternAssetToSvg(asset: PatternAsset) {
   if (asset.grid) {
     const { width, height } = asset.grid
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">${gridPaths(asset.grid)}</svg>`
+    const documentSize = gridSvgDocumentSize(asset, asset.grid)
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${documentSize.width}" height="${documentSize.height}" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">${gridPaths(asset.grid)}</svg>`
   }
   if (asset.svg) return asset.svg
   return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#20242b"/></svg>'
