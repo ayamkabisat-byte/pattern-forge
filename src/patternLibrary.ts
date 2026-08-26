@@ -190,7 +190,7 @@ export function patternAssetToSvg(asset: PatternAsset) {
 }
 
 export function exportPatternAssetJson(asset: PatternAsset) {
-  return JSON.stringify({ patternForge: 'pattern-asset', version: '1.2', asset }, null, 2)
+  return JSON.stringify({ patternForge: 'pattern-asset', version: '1.3', asset }, null, 2)
 }
 
 export function parsePatternAssetJson(raw: string): PatternAsset {
