@@ -1,8 +1,9 @@
 import type { CamoPatternData } from './engine/camouflage/types'
+import type { DirectionalPatternData } from './engine/directional/types'
 import type { LuxuryPatternData } from './engine/luxury/types'
 
-export type PatternSourceType = 'grid' | 'woven-template' | 'camouflage' | 'luxury-monogram' | 'luxury-composition' | 'imported-svg' | 'imported-json'
-export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat' | 'camouflage' | 'luxury' | 'scarf'
+export type PatternSourceType = 'grid' | 'woven-template' | 'camouflage' | 'directional' | 'luxury-monogram' | 'luxury-composition' | 'imported-svg' | 'imported-json'
+export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat' | 'directional' | 'camouflage' | 'luxury' | 'scarf'
 
 export type GridPatternData = {
   width: number
@@ -22,6 +23,7 @@ export type PatternAsset = {
   palette?: string[]
   grid?: GridPatternData
   camo?: CamoPatternData
+  directional?: DirectionalPatternData
   luxury?: LuxuryPatternData
   tags?: string[]
   meta?: Record<string, string | number | boolean>
@@ -51,7 +53,7 @@ export function savePatternAsset(input: Omit<PatternAsset, 'id' | 'createdAt' | 
   const items = loadPatternLibrary()
   const existing = input.id ? items.find((item) => item.id === input.id) : undefined
   const stamp = nowIso()
-  const asset: PatternAsset = { ...input, camo: deepClone(input.camo), luxury: deepClone(input.luxury), id: input.id ?? uid(), createdAt: existing?.createdAt ?? stamp, updatedAt: stamp }
+  const asset: PatternAsset = { ...input, camo: deepClone(input.camo), directional: deepClone(input.directional), luxury: deepClone(input.luxury), id: input.id ?? uid(), createdAt: existing?.createdAt ?? stamp, updatedAt: stamp }
   writeLibrary(existing ? items.map((item) => item.id === asset.id ? asset : item) : [asset, ...items])
   return asset
 }
@@ -60,7 +62,7 @@ export function deletePatternAsset(id: string) { writeLibrary(loadPatternLibrary
 export function renamePatternAsset(id: string, name: string) { const trimmed = name.trim(); if (!trimmed) return; writeLibrary(loadPatternLibrary().map((item) => item.id === id ? { ...item, name: trimmed, updatedAt: nowIso() } : item)) }
 export function duplicatePatternAsset(id: string) {
   const source = loadPatternLibrary().find((item) => item.id === id); if (!source) return null
-  const copy: PatternAsset = { ...source, id: uid(), name: `${source.name} Copy`, createdAt: nowIso(), updatedAt: nowIso(), grid: source.grid ? { ...source.grid, palette: [...source.grid.palette] } : undefined, camo: deepClone(source.camo), luxury: deepClone(source.luxury), palette: source.palette ? [...source.palette] : undefined, tags: source.tags ? [...source.tags] : undefined, meta: source.meta ? { ...source.meta } : undefined }
+  const copy: PatternAsset = { ...source, id: uid(), name: `${source.name} Copy`, createdAt: nowIso(), updatedAt: nowIso(), grid: source.grid ? { ...source.grid, palette: [...source.grid.palette] } : undefined, camo: deepClone(source.camo), directional: deepClone(source.directional), luxury: deepClone(source.luxury), palette: source.palette ? [...source.palette] : undefined, tags: source.tags ? [...source.tags] : undefined, meta: source.meta ? { ...source.meta } : undefined }
   writeLibrary([copy, ...loadPatternLibrary()]); return copy
 }
 
@@ -92,13 +94,13 @@ export function patternAssetToSvg(asset: PatternAsset) {
   return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="#20242b"/></svg>'
 }
 
-export function exportPatternAssetJson(asset: PatternAsset) { return JSON.stringify({ patternForge: 'pattern-asset', version: '1.5', asset }, null, 2) }
+export function exportPatternAssetJson(asset: PatternAsset) { return JSON.stringify({ patternForge: 'pattern-asset', version: '1.6', asset }, null, 2) }
 export function parsePatternAssetJson(raw: string): PatternAsset {
   const parsed = JSON.parse(raw) as { patternForge?: string; asset?: PatternAsset } | PatternAsset
   const candidate = 'asset' in parsed && parsed.asset ? parsed.asset : parsed as PatternAsset
   if (!candidate || typeof candidate !== 'object' || !candidate.name || !candidate.sourceType) throw new Error('Not a valid PatternForge pattern asset JSON.')
   const stamp = nowIso()
-  return { ...candidate, id: uid(), createdAt: stamp, updatedAt: stamp, palette: candidate.palette ? [...candidate.palette] : undefined, grid: candidate.grid ? { ...candidate.grid, palette: [...candidate.grid.palette] } : undefined, camo: deepClone(candidate.camo), luxury: deepClone(candidate.luxury) }
+  return { ...candidate, id: uid(), createdAt: stamp, updatedAt: stamp, palette: candidate.palette ? [...candidate.palette] : undefined, grid: candidate.grid ? { ...candidate.grid, palette: [...candidate.grid.palette] } : undefined, camo: deepClone(candidate.camo), directional: deepClone(candidate.directional), luxury: deepClone(candidate.luxury) }
 }
 export function importPatternAssetJson(raw: string) { return savePatternAsset(parsePatternAssetJson(raw)) }
 export function setPendingPattern(target: PatternTarget, asset: PatternAsset) { localStorage.setItem(PENDING_KEY, JSON.stringify({ target, asset } satisfies PendingPattern)) }
