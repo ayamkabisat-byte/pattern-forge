@@ -42,6 +42,10 @@ function svgDimensions(svg: string) {
   return { width, height }
 }
 
+function svgDataUri(svg: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 export default function MyPatternLibrary({ onUsePattern, onOpenPixel }: Props) {
   const [items, setItems] = useState<PatternAsset[]>(() => loadPatternLibrary())
   const [query, setQuery] = useState('')
@@ -142,7 +146,7 @@ export default function MyPatternLibrary({ onUsePattern, onOpenPixel }: Props) {
               const preview = patternAssetToSvg(item)
               return (
                 <article key={item.id} className="v11-pattern-card">
-                  <div className="v11-pattern-preview" dangerouslySetInnerHTML={{ __html: preview }} />
+                  <div className="v11-pattern-preview"><img src={svgDataUri(preview)} alt={`${item.name} pattern preview`} /></div>
                   <div className="v11-pattern-meta">
                     <div><b>{item.name}</b><span>{item.sourceType === 'grid' && item.grid ? `${item.grid.width}×${item.grid.height} editable grid` : item.sourceType.replace('-', ' ')}</span></div>
                     <small>{item.palette?.length ?? item.grid?.palette.length ?? 0} palette colors · updated {new Date(item.updatedAt).toLocaleDateString()}</small>
