@@ -17,6 +17,7 @@ type Props = {
   onUsePattern: (asset: PatternAsset, target: PatternTarget) => void
   onOpenPixel: () => void
   onOpenCamouflage: () => void
+  onOpenLuxury: () => void
 }
 
 const EDITABLE_GRID_SIZES = new Set([8, 16, 32, 64, 128, 256])
@@ -54,6 +55,7 @@ function isEditablePixelGrid(item: PatternAsset) {
 }
 
 function assetDescription(item: PatternAsset) {
+  if (item.luxury) return `${item.luxury.layout} luxury monogram · ${item.luxury.tileWidth}×${item.luxury.tileHeight} seamless tile`
   if (item.camo) return `${item.camo.mode} procedural camouflage · seed ${item.camo.seed}`
   if (item.grid) {
     const size = `${item.grid.width}×${item.grid.height}`
@@ -64,10 +66,10 @@ function assetDescription(item: PatternAsset) {
   return item.sourceType.replace('-', ' ')
 }
 
-export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpenCamouflage }: Props) {
+export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpenCamouflage, onOpenLuxury }: Props) {
   const [items, setItems] = useState<PatternAsset[]>(() => loadPatternLibrary())
   const [query, setQuery] = useState('')
-  const [message, setMessage] = useState('Master tiles, procedural generators and cropped motifs can be reused across PatternForge builders.')
+  const [message, setMessage] = useState('Master tiles, procedural generators and reusable motifs can be shared across PatternForge builders.')
   const jsonInputRef = useRef<HTMLInputElement>(null)
   const svgInputRef = useRef<HTMLInputElement>(null)
 
@@ -80,7 +82,7 @@ export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpen
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return items
-    return items.filter((item) => `${item.name} ${item.sourceType} ${(item.tags ?? []).join(' ')} ${item.meta?.cropped ? 'cropped motif' : ''} ${item.camo?.mode ?? ''} ${item.camo?.presetId ?? ''}`.toLowerCase().includes(q))
+    return items.filter((item) => `${item.name} ${item.sourceType} ${(item.tags ?? []).join(' ')} ${item.meta?.cropped ? 'cropped motif' : ''} ${item.camo?.mode ?? ''} ${item.camo?.presetId ?? ''} ${item.luxury?.layout ?? ''}`.toLowerCase().includes(q))
   }, [items, query])
 
   function rename(item: PatternAsset) {
@@ -130,12 +132,7 @@ export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpen
       if (!file.name.toLowerCase().endsWith('.svg')) continue
       const svg = await file.text()
       const dims = svgDimensions(svg)
-      savePatternAsset({
-        name: file.name.replace(/\.svg$/i, ''),
-        sourceType: 'imported-svg',
-        svg,
-        meta: { width: dims.width, height: dims.height },
-      })
+      savePatternAsset({ name: file.name.replace(/\.svg$/i, ''), sourceType: 'imported-svg', svg, meta: { width: dims.width, height: dims.height } })
       count++
     }
     if (count) setMessage(`${count} SVG pattern asset${count > 1 ? 's' : ''} added to My Patterns.`)
@@ -144,34 +141,36 @@ export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpen
   return (
     <div className="v11-library-shell v111-library-shell">
       <header className="v11-library-head">
-        <div><b>My Pattern Library</b><span>Master tiles, cropped motifs, procedural Camouflage, Woven templates and imported SVG/JSON assets.</span></div>
-        <div><button onClick={onOpenPixel}>+ Pixel Pattern</button><button onClick={onOpenCamouflage}>+ Camouflage</button><button onClick={() => jsonInputRef.current?.click()}>Import Pattern JSON</button><button onClick={() => svgInputRef.current?.click()}>Import SVG</button></div>
+        <div><b>My Pattern Library</b><span>Pixel masters, Camouflage, Luxury Monograms, Woven templates, cropped motifs and imported assets.</span></div>
+        <div><button onClick={onOpenPixel}>+ Pixel Pattern</button><button onClick={onOpenCamouflage}>+ Camouflage</button><button onClick={onOpenLuxury}>+ Luxury Monogram</button><button onClick={() => jsonInputRef.current?.click()}>Import Pattern JSON</button><button onClick={() => svgInputRef.current?.click()}>Import SVG</button></div>
         <input ref={jsonInputRef} hidden type="file" accept=".json,application/json" multiple onChange={(event) => importJsonFiles(event.target.files)} />
         <input ref={svgInputRef} hidden type="file" accept=".svg,image/svg+xml" multiple onChange={(event) => importSvgFiles(event.target.files)} />
       </header>
 
       <div className="v11-library-toolbar">
-        <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, camouflage, crop, motif, source or tag…" /></label>
+        <label><span>Search</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, luxury, camouflage, crop, motif, source or tag…" /></label>
         <div><b>{filtered.length}</b><span>pattern assets</span></div>
       </div>
 
       <main className="v11-library-main">
         {!filtered.length ? (
-          <div className="v11-library-empty"><b>No saved patterns yet</b><p>Create a Pixel master tile, generate procedural camouflage, save a Woven template, or import an SVG / PatternForge JSON file.</p><div className="v12-empty-actions"><button onClick={onOpenPixel}>Open Pixel Pattern</button><button onClick={onOpenCamouflage}>Open Camouflage</button></div></div>
+          <div className="v11-library-empty"><b>No saved patterns yet</b><p>Create a Pixel master tile, procedural Camouflage, Luxury Monogram, Woven template, or import an SVG / PatternForge JSON file.</p><div className="v12-empty-actions"><button onClick={onOpenPixel}>Open Pixel Pattern</button><button onClick={onOpenCamouflage}>Open Camouflage</button><button onClick={onOpenLuxury}>Open Luxury Suite</button></div></div>
         ) : (
           <div className="v11-library-grid">
             {filtered.map((item) => {
               const preview = patternAssetToSvg(item)
               const editable = isEditablePixelGrid(item)
               const editableCamo = Boolean(item.camo && item.sourceType === 'camouflage')
+              const editableLuxury = Boolean(item.luxury && item.sourceType === 'luxury-monogram')
               return (
-                <article key={item.id} className={`v11-pattern-card ${item.meta?.cropped ? 'v111-cropped-card' : ''} ${editableCamo ? 'v12-camo-card' : ''}`}>
+                <article key={item.id} className={`v11-pattern-card ${item.meta?.cropped ? 'v111-cropped-card' : ''} ${editableCamo ? 'v12-camo-card' : ''} ${editableLuxury ? 'v14-luxury-card' : ''}`}>
                   <div className="v11-pattern-preview"><img src={svgDataUri(preview)} alt={`${item.name} pattern preview`} /></div>
                   <div className="v11-pattern-meta">
                     <div><b>{item.name}</b><span>{assetDescription(item)}</span></div>
                     <small>{item.palette?.length ?? item.grid?.palette.length ?? 0} palette colors · updated {new Date(item.updatedAt).toLocaleDateString()}</small>
                     {item.meta?.cropped ? <em className="v111-motif-badge">CROPPED MOTIF · READY FOR OTHER BUILDERS</em> : null}
                     {editableCamo ? <em className="v12-camo-badge">PROCEDURAL CAMO · EDITABLE SEED + SETTINGS</em> : null}
+                    {editableLuxury ? <em className="v14-luxury-badge">LUXURY MONOGRAM · EDITABLE LAYOUT + ROLES</em> : null}
                   </div>
                   <div className="v11-use-row v115-use-row">
                     <button onClick={() => onUsePattern(item, 'seamless')}>Use in Seamless</button>
@@ -180,6 +179,7 @@ export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpen
                     <button onClick={() => onUsePattern(item, 'woven')}>Use in Woven</button>
                     {editable ? <button className="active" onClick={() => onUsePattern(item, 'pixel')}>Edit Grid</button> : null}
                     {editableCamo ? <button className="active" onClick={() => onUsePattern(item, 'camouflage')}>Edit Camo</button> : null}
+                    {editableLuxury ? <button className="active" onClick={() => onUsePattern(item, 'luxury')}>Edit Monogram</button> : null}
                   </div>
                   <div className="v11-card-actions"><button onClick={() => exportSvg(item)}>SVG</button><button onClick={() => exportJson(item)}>JSON</button><button onClick={() => rename(item)}>Rename</button><button onClick={() => duplicate(item)}>Duplicate</button><button className="v09-danger" onClick={() => remove(item)}>Delete</button></div>
                 </article>
@@ -188,7 +188,7 @@ export default function MyPatternLibraryV111({ onUsePattern, onOpenPixel, onOpen
           </div>
         )}
       </main>
-      <footer className="v11-library-status"><span>{message}</span><b>MASTER + PROCEDURAL + MOTIF LIBRARY</b></footer>
+      <footer className="v11-library-status"><span>{message}</span><b>MASTER + PROCEDURAL + LUXURY + MOTIF LIBRARY</b></footer>
     </div>
   )
 }

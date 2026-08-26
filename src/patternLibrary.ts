@@ -1,7 +1,8 @@
 import type { CamoPatternData } from './engine/camouflage/types'
+import type { LuxuryMonogramData } from './engine/luxury/types'
 
-export type PatternSourceType = 'grid' | 'woven-template' | 'camouflage' | 'imported-svg' | 'imported-json'
-export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat' | 'camouflage'
+export type PatternSourceType = 'grid' | 'woven-template' | 'camouflage' | 'luxury-monogram' | 'imported-svg' | 'imported-json'
+export type PatternTarget = 'seamless' | 'guides' | 'woven' | 'pixel' | 'repeat' | 'camouflage' | 'luxury'
 
 export type GridPatternData = {
   width: number
@@ -21,6 +22,7 @@ export type PatternAsset = {
   palette?: string[]
   grid?: GridPatternData
   camo?: CamoPatternData
+  luxury?: LuxuryMonogramData
   tags?: string[]
   meta?: Record<string, string | number | boolean>
 }
@@ -55,6 +57,10 @@ function cloneCamo(camo?: CamoPatternData) {
   return camo ? JSON.parse(JSON.stringify(camo)) as CamoPatternData : undefined
 }
 
+function cloneLuxury(luxury?: LuxuryMonogramData) {
+  return luxury ? JSON.parse(JSON.stringify(luxury)) as LuxuryMonogramData : undefined
+}
+
 function notifyLibrary() {
   window.dispatchEvent(new CustomEvent(LIBRARY_EVENT))
 }
@@ -81,6 +87,7 @@ export function savePatternAsset(input: Omit<PatternAsset, 'id' | 'createdAt' | 
   const asset: PatternAsset = {
     ...input,
     camo: cloneCamo(input.camo),
+    luxury: cloneLuxury(input.luxury),
     id: input.id ?? uid(),
     createdAt: existing?.createdAt ?? stamp,
     updatedAt: stamp,
@@ -112,6 +119,7 @@ export function duplicatePatternAsset(id: string) {
     updatedAt: nowIso(),
     grid: source.grid ? { ...source.grid, palette: [...source.grid.palette] } : undefined,
     camo: cloneCamo(source.camo),
+    luxury: cloneLuxury(source.luxury),
     palette: source.palette ? [...source.palette] : undefined,
     tags: source.tags ? [...source.tags] : undefined,
     meta: source.meta ? { ...source.meta } : undefined,
@@ -190,7 +198,7 @@ export function patternAssetToSvg(asset: PatternAsset) {
 }
 
 export function exportPatternAssetJson(asset: PatternAsset) {
-  return JSON.stringify({ patternForge: 'pattern-asset', version: '1.3', asset }, null, 2)
+  return JSON.stringify({ patternForge: 'pattern-asset', version: '1.4', asset }, null, 2)
 }
 
 export function parsePatternAssetJson(raw: string): PatternAsset {
@@ -206,6 +214,7 @@ export function parsePatternAssetJson(raw: string): PatternAsset {
     palette: candidate.palette ? [...candidate.palette] : undefined,
     grid: candidate.grid ? { ...candidate.grid, palette: [...candidate.grid.palette] } : undefined,
     camo: cloneCamo(candidate.camo),
+    luxury: cloneLuxury(candidate.luxury),
   }
 }
 
