@@ -25,6 +25,12 @@ type FieldProfile = {
   direction: OrganicDirection
 }
 
+type RegionScores = {
+  scores: Float64Array[]
+  biases: number[]
+  size: number
+}
+
 function chooseWaveVector(rand: () => number, minFreq: number, maxFreq: number, direction: OrganicDirection) {
   const freq = Math.max(1, Math.round(minFreq + rand() * Math.max(0, maxFreq - minFreq)))
   const signX = rand() > .5 ? 1 : -1
@@ -92,32 +98,102 @@ function createPeriodicField(seed: number, profile: FieldProfile) {
   }
 }
 
-function regionOrder(data: CamoPatternData) {
-  const background = Math.max(0, Math.min(data.palette.length - 1, data.backgroundColor))
-  return [background, ...data.palette.map((_, index) => index).filter((index) => index !== background)]
-}
-
 function weightAt(weights: number[], index: number) {
   const value = Number(weights[index])
   return Number.isFinite(value) && value > 0 ? value : 1
 }
 
-function quantileThresholds(values: number[], order: number[], weights: number[]) {
-  if (order.length <= 1 || !values.length) return []
-  const sorted = [...values].sort((a, b) => a - b)
-  const total = order.reduce((sum, index) => sum + weightAt(weights, index), 0)
-  let cumulative = 0
-  return order.slice(0, -1).map((index) => {
-    cumulative += weightAt(weights, index)
-    const q = Math.max(0, Math.min(.999999, cumulative / total))
-    return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]
-  })
+function normalizedWeights(paletteSize: number, weights: number[]) {
+  const raw = Array.from({ length: paletteSize }, (_, index) => weightAt(weights, index))
+  const total = raw.reduce((sum, value) => sum + value, 0) || 1
+  return raw.map((value) => value / total)
 }
 
-function bandForValue(value: number, thresholds: number[]) {
-  let band = 0
-  while (band < thresholds.length && value >= thresholds[band]) band++
-  return band
+function calibrateBiases(scores: Float64Array[], weights: number[], iterations = 10) {
+  const colors = scores.length
+  if (!colors) return []
+  const count = scores[0].length
+  const target = normalizedWeights(colors, weights)
+  const biases = target.map((value) => Math.log(Math.max(1e-6, value)) * .28)
+
+  for (let iteration = 0; iteration < iterations; iteration++) {
+    const observed = new Array(colors).fill(0)
+    for (let index = 0; index < count; index++) {
+      let best = 0
+      let bestScore = scores[0][index] + biases[0]
+      for (let color = 1; color < colors; color++) {
+        const score = scores[color][index] + biases[color]
+        if (score > bestScore) { best = color; bestScore = score }
+      }
+      observed[best]++
+    }
+    for (let color = 0; color < colors; color++) {
+      const ratio = Math.max(1e-6, observed[color] / Math.max(1, count))
+      biases[color] += .22 * Math.log(Math.max(1e-6, target[color]) / ratio)
+    }
+  }
+  return biases
+}
+
+function createRegionScores(data: CamoPatternData, profile: FieldProfile, size: number, coordinate: (value: number) => number, weights: number[]): RegionScores {
+  const scores: Float64Array[] = []
+  const count = size * size
+  for (let color = 0; color < data.palette.length; color++) {
+    const derivedSeed = (data.seed + Math.imul(color + 1, 0x9e3779b1)) >>> 0
+    const field = createPeriodicField(derivedSeed, {
+      ...profile,
+      macroScale: clamp01(profile.macroScale * (.92 + ((color * 37) % 11) * .012)),
+      mediumBreakup: clamp01(profile.mediumBreakup * (.9 + ((color * 17) % 9) * .025)),
+    })
+    const values = new Float64Array(count)
+    let sum = 0
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const value = field(coordinate(x), coordinate(y), size)
+        values[y * size + x] = value
+        sum += value
+      }
+    }
+    const mean = sum / Math.max(1, count)
+    let variance = 0
+    for (let index = 0; index < count; index++) variance += (values[index] - mean) ** 2
+    const std = Math.sqrt(variance / Math.max(1, count)) || 1
+    for (let index = 0; index < count; index++) values[index] = (values[index] - mean) / std
+    scores.push(values)
+  }
+  return { scores, biases: calibrateBiases(scores, weights), size }
+}
+
+function labelsFromRegionScores(region: RegionScores) {
+  const { scores, biases } = region
+  const count = scores[0]?.length ?? 0
+  const labels = new Uint8Array(count)
+  for (let index = 0; index < count; index++) {
+    let best = 0
+    let bestScore = scores[0][index] + biases[0]
+    for (let color = 1; color < scores.length; color++) {
+      const score = scores[color][index] + biases[color]
+      if (score > bestScore) { best = color; bestScore = score }
+    }
+    labels[index] = best
+  }
+  return labels
+}
+
+function dominanceField(region: RegionScores, colorIndex: number) {
+  const { scores, biases } = region
+  const count = scores[colorIndex]?.length ?? 0
+  const values = new Float64Array(count)
+  for (let index = 0; index < count; index++) {
+    const own = scores[colorIndex][index] + biases[colorIndex]
+    let other = -Infinity
+    for (let color = 0; color < scores.length; color++) {
+      if (color === colorIndex) continue
+      other = Math.max(other, scores[color][index] + biases[color])
+    }
+    values[index] = own - other
+  }
+  return values
 }
 
 function digitalProfile(data: CamoPatternData): FieldProfile {
@@ -126,7 +202,7 @@ function digitalProfile(data: CamoPatternData): FieldProfile {
     macroScale: s.macroRegion ?? s.macroScale,
     mediumBreakup: s.mediumBreakup ?? s.mediumScale,
     edgeComplexity: s.fragmentation ?? s.roughness,
-    branching: (s.fragmentation + s.stairStep) * .5,
+    branching: clamp01((s.fragmentation + s.stairStep) * .5),
     islandAmount: s.islandAmount ?? s.microDetail,
     direction: 'none',
   }
@@ -146,8 +222,8 @@ function organicProfile(data: CamoPatternData): FieldProfile {
 
 function nearestChunk(blockScale: number) {
   const scale = clamp01(blockScale)
-  if (scale > .82) return 8
-  if (scale > .58) return 4
+  if (scale > .84) return 8
+  if (scale > .6) return 4
   if (scale > .3) return 2
   return 1
 }
@@ -169,9 +245,7 @@ function cleanupOrthogonal(cells: Uint8Array, size: number, passes: number) {
         for (const value of neighbors) counts.set(value, (counts.get(value) ?? 0) + 1)
         let best = center
         let bestCount = 0
-        counts.forEach((count, value) => {
-          if (count > bestCount) { best = value; bestCount = count }
-        })
+        counts.forEach((count, value) => { if (count > bestCount) { best = value; bestCount = count } })
         if (best !== center && bestCount >= 3) next[y * size + x] = best
       }
     }
@@ -183,32 +257,16 @@ function cleanupOrthogonal(cells: Uint8Array, size: number, passes: number) {
 export function generateDigitalCells(data: CamoPatternData) {
   const s = data.digital
   const size = s.resolution
-  const field = createPeriodicField(data.seed, digitalProfile(data))
   const chunk = nearestChunk(s.blockScale)
-  const rawValues = new Float64Array(size * size)
-  const samples: number[] = []
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const sx = Math.floor(x / chunk) * chunk + chunk * .5
-      const sy = Math.floor(y / chunk) * chunk + chunk * .5
-      const value = field(sx, sy, size)
-      rawValues[y * size + x] = value
-      samples.push(value)
-    }
-  }
-
-  const order = regionOrder(data)
-  const thresholds = quantileThresholds(samples, order, s.colorWeights)
-  const cells = new Uint8Array(size * size)
-  for (let index = 0; index < rawValues.length; index++) {
-    const band = bandForValue(rawValues[index], thresholds)
-    const color = order[Math.min(order.length - 1, band)] ?? 0
-    cells[index] = data.backgroundMode === 'transparent' && color === data.backgroundColor ? TRANSPARENT : color
-  }
-
+  const coordinate = (value: number) => Math.floor(value / chunk) * chunk + chunk * .5
+  const region = createRegionScores(data, digitalProfile(data), size, coordinate, s.colorWeights)
+  let cells = labelsFromRegionScores(region)
   const passes = Math.max(0, Math.round(clamp01(s.orthogonalCleanup) * 3))
-  return cleanupOrthogonal(cells, size, passes)
+  cells = cleanupOrthogonal(cells, size, passes)
+  if (data.backgroundMode === 'transparent') {
+    for (let index = 0; index < cells.length; index++) if (cells[index] === data.backgroundColor) cells[index] = TRANSPARENT
+  }
+  return cells
 }
 
 function documentSize(width: number, height: number, longSide: number) {
@@ -295,20 +353,17 @@ function cellPolygons(v0: number, v1: number, v2: number, v3: number, threshold:
   }
 }
 
-function fieldGrid(data: CamoPatternData) {
+function effectiveOrganicResolution(data: CamoPatternData) {
   const s = data.organic
-  const n = s.fieldResolution
-  const field = createPeriodicField(data.seed, organicProfile(data))
-  const values = new Float64Array(n * n)
-  const samples: number[] = []
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const value = field(x, y, n)
-      values[y * n + x] = value
-      samples.push(value)
-    }
-  }
-  return { n, values, samples }
+  const detailFactor = s.detail === 'clean' ? .78 : s.detail === 'detailed' ? 1.18 : 1
+  const simplifyFactor = 1 - clamp01(s.simplification) * .28
+  return Math.max(32, Math.min(128, Math.round(s.fieldResolution * detailFactor * simplifyFactor)))
+}
+
+function organicRegionScores(data: CamoPatternData) {
+  const n = effectiveOrganicResolution(data)
+  const region = createRegionScores(data, organicProfile(data), n, (value) => value, data.organic.colorWeights)
+  return { n, region }
 }
 
 function fieldValue(values: Float64Array, n: number, x: number, y: number) {
@@ -424,10 +479,11 @@ function pebbleOverlay(data: CamoPatternData) {
     const outer = spotPath(cx, cy, rx, ry, rand, s.contourSmoothness)
     const innerScale = .26 + clamp01(s.spotInnerScale) * .48
     const inner = spotPath(cx, cy, rx * innerScale, ry * innerScale, rand, s.contourSmoothness)
+    const hasInner = rand() > .18
     for (const wx of wraps) for (const wy of wraps) {
       const transform = `translate(${wx * tile} ${wy * tile})`
       parts.push(`<path d="${outer}" fill="${outerColor}" transform="${transform}"/>`)
-      if (rand() > .18) parts.push(`<path d="${inner}" fill="${innerColor}" transform="${transform}"/>`)
+      if (hasInner) parts.push(`<path d="${inner}" fill="${innerColor}" transform="${transform}"/>`)
     }
   }
   return parts.join('')
@@ -442,7 +498,7 @@ function hybridOverlay(data: CamoPatternData) {
   const values: number[] = []
   for (let y = 0; y < grid; y++) for (let x = 0; x < grid; x++) values.push(field(x, y, grid))
   const sorted = [...values].sort((a, b) => a - b)
-  const threshold = sorted[Math.floor((.9 - amount * .28) * (sorted.length - 1))]
+  const threshold = sorted[Math.max(0, Math.min(sorted.length - 1, Math.floor((.9 - amount * .28) * (sorted.length - 1))))]
   const dark = data.palette.map((color, index) => ({ index, value: hexLuminance(color) })).sort((a, b) => a.value - b.value)[0]?.index ?? 0
   const cell = tile / grid
   const chunks: string[] = []
@@ -463,24 +519,23 @@ function organicRegionSvg(data: CamoPatternData) {
   const s = data.organic
   const tile = s.tileSize
   const dims = documentSize(tile, tile, data.exportLongSide)
-  const { n, values, samples } = fieldGrid(data)
-  const order = regionOrder(data)
-  const thresholds = quantileThresholds(samples, order, s.colorWeights)
-  const backgroundIndex = order[0] ?? 0
+  const { n, region } = organicRegionScores(data)
+  const backgroundIndex = Math.max(0, Math.min(data.palette.length - 1, data.backgroundColor))
   const background = data.backgroundMode === 'solid' && data.palette[backgroundIndex]
     ? `<rect width="${tile}" height="${tile}" fill="${esc(data.palette[backgroundIndex])}"/>`
     : ''
   const cellSize = tile / n
-  const strokeWidth = cellSize * (.02 + clamp01(s.contourSmoothness) * .08)
-  const layers = thresholds.map((threshold, layerIndex) => {
-    const colorIndex = order[layerIndex + 1] ?? order[order.length - 1] ?? 0
-    const color = esc(data.palette[colorIndex] ?? '#000000')
-    const d = layerPath(values, n, tile, threshold)
-    return `<path d="${d}" fill="${color}" stroke="${color}" stroke-width="${strokeWidth.toFixed(3)}" stroke-linejoin="round"/>`
+  const strokeWidth = cellSize * (.015 + clamp01(s.contourSmoothness) * .065)
+  const regions = data.palette.map((color, colorIndex) => {
+    if (colorIndex === backgroundIndex) return ''
+    const dominance = dominanceField(region, colorIndex)
+    const d = layerPath(dominance, n, tile, 0)
+    const fill = esc(color)
+    return `<path d="${d}" fill="${fill}" stroke="${fill}" stroke-width="${strokeWidth.toFixed(3)}" stroke-linejoin="round"/>`
   }).join('')
   const extras = data.engine === 'pebble' ? pebbleOverlay(data) : data.engine === 'hybrid' ? hybridOverlay(data) : ''
   const source = data.engine === 'pebble' ? 'camouflage-pebble' : data.engine === 'hybrid' ? 'camouflage-hybrid' : 'camouflage-interlocking'
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${dims.width}" height="${dims.height}" viewBox="0 0 ${tile} ${tile}" data-patternforge-exact-bounds="true" data-patternforge-seamless="true" data-patternforge-source="${source}"><defs><clipPath id="pf-camo-region-clip"><rect width="${tile}" height="${tile}"/></clipPath></defs>${background}<g clip-path="url(#pf-camo-region-clip)">${layers}${extras}</g></svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${dims.width}" height="${dims.height}" viewBox="0 0 ${tile} ${tile}" data-patternforge-exact-bounds="true" data-patternforge-seamless="true" data-patternforge-source="${source}"><defs><clipPath id="pf-camo-region-clip"><rect width="${tile}" height="${tile}"/></clipPath></defs>${background}<g clip-path="url(#pf-camo-region-clip)">${regions}${extras}</g></svg>`
 }
 
 export function organicCamoSvg(data: CamoPatternData) {
