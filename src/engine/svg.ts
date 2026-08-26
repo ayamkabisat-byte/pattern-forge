@@ -39,6 +39,14 @@ function readViewBox(root: Element) {
   return { viewBox, width, height }
 }
 
+function shouldPreserveExactBounds(root: Element) {
+  if (root.getAttribute('data-patternforge-exact-bounds') === 'true') return true
+  const shapeRendering = root.getAttribute('shape-rendering')?.toLowerCase().replaceAll(/\s+/g, '')
+  // Backward compatibility for Pixel Pattern SVGs exported before the explicit marker existed.
+  if (shapeRendering === 'crispedges' && root.hasAttribute('viewBox')) return true
+  return false
+}
+
 async function visualViewBox(innerSvg: string, fallback: { viewBox: string; width: number; height: number }) {
   const ns = 'http://www.w3.org/2000/svg'
   const host = document.createElement('div')
@@ -77,7 +85,7 @@ async function visualViewBox(innerSvg: string, fallback: { viewBox: string; widt
       return { ...fallback, trimmed: false }
     }
 
-    // Small safety margin protects strokes from being clipped after viewBox normalization.
+    // Generic motif SVGs still receive a safety margin so strokes are not clipped.
     const margin = Math.max(0.5, Math.max(bbox.width, bbox.height) * 0.012)
     const x = bbox.x - margin
     const y = bbox.y - margin
@@ -103,6 +111,8 @@ export async function parseSvgAsset(text: string, name: string, id: string): Pro
   if (root.tagName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) {
     throw new Error(`${name} is not a valid SVG file.`)
   }
+
+  const preserveExactBounds = shouldPreserveExactBounds(root)
 
   root.querySelectorAll('*').forEach((el) => {
     if (BLOCKED_TAGS.has(el.tagName.toLowerCase())) {
@@ -138,7 +148,9 @@ export async function parseSvgAsset(text: string, name: string, id: string): Pro
 
   const fallback = readViewBox(root)
   const innerSvg = root.innerHTML
-  const visual = await visualViewBox(innerSvg, fallback)
+  const visual = preserveExactBounds
+    ? { ...fallback, trimmed: false }
+    : await visualViewBox(innerSvg, fallback)
 
   return {
     id,
