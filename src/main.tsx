@@ -10,6 +10,7 @@ import './v08.css'
 import './v09.css'
 import './v091.css'
 import './v10.css'
+import './v101.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

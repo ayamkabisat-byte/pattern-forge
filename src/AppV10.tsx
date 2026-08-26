@@ -3,14 +3,16 @@ import AppV08 from './AppV08'
 import FreeformPatternEditorV091 from './components/FreeformPatternEditorV091'
 import LayoutGuideBuilder from './components/LayoutGuideBuilder'
 import PlaidTartanMaker from './components/PlaidTartanMaker'
+import WovenTextileBuilder from './components/WovenTextileBuilder'
 
-type Workspace = 'seamless' | 'guides' | 'plaid' | 'legacy'
+type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'legacy'
 
 function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange: (workspace: Workspace) => void }) {
   const items: Array<{ id: Workspace; label: string; hint: string }> = [
     { id: 'seamless', label: 'Seamless Builder', hint: 'Freeform + Radial Repeat' },
     { id: 'guides', label: 'Layout Guides', hint: 'Frame · Strip · Diagonal' },
     { id: 'plaid', label: 'Plaid / Tartan', hint: 'Template + HEX palette' },
+    { id: 'textile', label: 'Woven / Textile', hint: 'Bands · zones · motif rows' },
     { id: 'legacy', label: 'Legacy Auto', hint: 'Old experimental presets' },
   ]
 
@@ -18,7 +20,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     <nav className="v10-global-nav">
       <div className="v10-nav-brand">
         <span>PF</span>
-        <div><b>PatternForge</b><small>v1.0 Preview</small></div>
+        <div><b>PatternForge</b><small>v1.0.1 Preview</small></div>
       </div>
       <div className="v10-nav-tabs">
         {items.map((item) => (
@@ -59,10 +61,18 @@ export default function AppV10() {
         />
       ) : null}
 
+      {workspace === 'textile' ? (
+        <WovenTextileBuilder
+          onOpenSeamless={() => setWorkspace('seamless')}
+          onOpenGuides={() => setWorkspace('guides')}
+          onOpenPlaid={() => setWorkspace('plaid')}
+        />
+      ) : null}
+
       {workspace === 'legacy' ? (
         <div className="v10-legacy-shell">
           <div className="v10-legacy-note">
-            <div><b>Legacy Auto Builder</b><span>Paisley / Kawung / Parang auto presets are kept only for reference. New cultural pattern work should use Layout Guides or Freeform.</span></div>
+            <div><b>Legacy Auto Builder</b><span>Paisley / Kawung / Parang auto presets are kept only for reference. New cultural pattern work should use Layout Guides, Woven / Textile, or Freeform.</span></div>
             <button onClick={() => setWorkspace('guides')}>Open Layout Guides</button>
           </div>
           <div className="v10-legacy-scroll"><AppV08 /></div>
