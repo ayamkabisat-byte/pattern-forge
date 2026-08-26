@@ -104,7 +104,7 @@ function replacePaints(root: Element, paints: string[]) {
     const style = node.getAttribute('style')
     if (style) {
       let next = style
-      for (const [paint, role] of roleFor) next = next.replaceAll(paint, `{{${role}}}`)
+      for (const [paint, role] of roleFor) next = next.replace(new RegExp(paint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `{{${role}}}`)
       next = next.replace(/currentColor/gi, '{{primary}}')
       node.setAttribute('style', next)
     }
@@ -127,7 +127,8 @@ export function parseLuxurySvgShape(svg: string, name: string, category: LuxuryS
   const drawH = Math.abs(height) * scale
   const dx = (100 - drawW) / 2
   const dy = (100 - drawH) / 2
-  const body = `<g transform="translate(${dx.toFixed(4)} ${dy.toFixed(4)}) scale(${scale.toFixed(6)}) translate(${-x} ${-y})">${inner}</g>`
+  const fallbackPaint = paints.length ? '' : ' fill="{{primary}}" color="{{primary}}"'
+  const body = `<g${fallbackPaint} transform="translate(${dx.toFixed(4)} ${dy.toFixed(4)}) scale(${scale.toFixed(6)}) translate(${-x} ${-y})">${inner}</g>`
   const roles = paints.length ? paints.map((_, index) => ROLE_ORDER[index]) : ['primary']
   return {
     id: uid(),
