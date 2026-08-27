@@ -2,12 +2,17 @@ export type MonogramLayout = 'grid' | 'brick' | 'diagonal' | 'diamond'
 export type AlternateRotation = 'none' | '180' | '90'
 export type LuxuryShapeCategory = 'main' | 'filler' | 'border' | 'corner' | 'medallion' | 'strip'
 
-export type LuxuryCustomShape = {
+export type LuxuryReusableShape = {
   id: string
   name: string
   category: LuxuryShapeCategory
   roles: string[]
   body: string
+  originalColors?: string[]
+  sourceViewBox?: string
+}
+
+export type LuxuryCustomShape = LuxuryReusableShape & {
   originalColors: string[]
   sourceViewBox: string
 }
@@ -40,7 +45,7 @@ export type LuxuryMonogramData = {
   backgroundMode: 'solid' | 'transparent'
   backgroundColor: number
   exportLongSide: number
-  customShapes?: LuxuryCustomShape[]
+  customShapes?: LuxuryReusableShape[]
 }
 
 export type ScarfCenterMode = 'empty' | 'pattern' | 'sparse-pattern' | 'medallion' | 'pattern-medallion'
@@ -133,7 +138,7 @@ export type LuxuryScarfData = {
   medallionShapeId: string
   medallionScale: number
   medallionColorRoles: Record<string, number>
-  customShapes?: LuxuryCustomShape[]
+  customShapes?: LuxuryReusableShape[]
 
   sideLinkMode?: ScarfSideLinkMode
   sideSymmetry?: ScarfSideSymmetry
