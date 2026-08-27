@@ -45,9 +45,65 @@ export type LuxuryMonogramData = {
 
 export type ScarfCenterMode = 'empty' | 'pattern' | 'sparse-pattern' | 'medallion' | 'pattern-medallion'
 export type ScarfCornerMode = 'rotate' | 'mirror' | 'same'
+export type ScarfSide = 'top' | 'right' | 'bottom' | 'left'
+export type ScarfSideLinkMode = 'all' | 'opposite' | 'independent'
+export type ScarfSideSymmetry = 'copy' | 'rotate' | 'mirror' | 'alternate'
+export type ScarfCorner = 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft'
+export type ScarfCornerLinkMode = 'all' | 'independent'
+export type ScarfFrameSource = 'solid' | 'global-pattern' | 'custom-pattern'
+
+export type ScarfSidePattern = {
+  enabled: boolean
+  sourceSvg?: string
+  sourceName?: string
+  scale: number
+  spacing: number
+  offset: number
+  opacity: number
+  rotation: number
+  mirrorX: boolean
+  mirrorY: boolean
+  bandWidth: number
+  inset: number
+}
+
+export type ScarfFrameLayer = {
+  id: 'outer' | 'inner' | 'accent'
+  name: string
+  enabled: boolean
+  inset: number
+  width: number
+  color: number
+  source: ScarfFrameSource
+  patternSvg?: string
+  patternName?: string
+  patternScale: number
+  opacity: number
+}
+
+export type ScarfCornerSlot = {
+  enabled: boolean
+  shapeId: string
+  scale: number
+  inset: number
+  rotation: number
+  mirrorX: boolean
+  mirrorY: boolean
+  colorRoles: Record<string, number>
+}
+
+export type ScarfBorderScatter = {
+  enabled: boolean
+  depth: number
+  rows: number
+  density: number
+  baseOpacity: number
+  scaleFalloff: number
+  opacityFalloff: number
+}
 
 export type LuxuryScarfData = {
-  version: 1
+  version: 1 | 2
   mode: 'scarf'
   product: 'scarf' | 'hijab'
   canvasSize: number
@@ -78,6 +134,14 @@ export type LuxuryScarfData = {
   medallionScale: number
   medallionColorRoles: Record<string, number>
   customShapes?: LuxuryCustomShape[]
+
+  sideLinkMode?: ScarfSideLinkMode
+  sideSymmetry?: ScarfSideSymmetry
+  sides?: Record<ScarfSide, ScarfSidePattern>
+  frames?: ScarfFrameLayer[]
+  cornerLinkMode?: ScarfCornerLinkMode
+  corners?: Record<ScarfCorner, ScarfCornerSlot>
+  scatter?: ScarfBorderScatter
 }
 
 export type LuxuryPatternData = LuxuryMonogramData | LuxuryScarfData
