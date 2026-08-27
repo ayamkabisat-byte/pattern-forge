@@ -59,6 +59,30 @@ export function normalizeTileSetConfig(config: TileSetConfig, assetCount: number
   return { ...config, columns, rows, customMatrix, weights }
 }
 
+export function remapTileSetConfigAfterAssetRemoval(config: TileSetConfig, removedIndex: number, assetCountBefore: number): TileSetConfig {
+  const oldCount = Math.max(0, Math.round(assetCountBefore))
+  if (oldCount <= 1) return { ...config, weights: [], customMatrix: [] }
+
+  const safeRemoved = Math.max(0, Math.min(oldCount - 1, Math.round(removedIndex)))
+  const normalized = normalizeTileSetConfig(config, oldCount)
+  const newCount = oldCount - 1
+  const replacementIndex = Math.min(safeRemoved, newCount - 1)
+  const remapIndex = (value: number) => {
+    const oldIndex = mod(Math.round(value), oldCount)
+    if (oldIndex === safeRemoved) return replacementIndex
+    if (oldIndex > safeRemoved) return oldIndex - 1
+    return oldIndex
+  }
+
+  return {
+    ...config,
+    columns: normalized.columns,
+    rows: normalized.rows,
+    customMatrix: normalized.customMatrix.map(remapIndex),
+    weights: normalized.weights.filter((_, index) => index !== safeRemoved),
+  }
+}
+
 export function tileSetMatrix(config: TileSetConfig, assetCount: number) {
   const normalized = normalizeTileSetConfig(config, assetCount)
   const n = Math.max(1, assetCount)
