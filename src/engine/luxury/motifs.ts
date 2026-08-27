@@ -1,14 +1,6 @@
-import type { LuxuryCustomShape, LuxuryShapeCategory } from './types'
+import type { LuxuryReusableShape } from './types'
 
-export type LuxuryMotif = {
-  id: string
-  name: string
-  category: LuxuryShapeCategory
-  roles: string[]
-  body: string
-  originalColors?: string[]
-  sourceViewBox?: string
-}
+export type LuxuryMotif = LuxuryReusableShape
 
 export const LUXURY_MOTIFS: LuxuryMotif[] = [
   { id: 'quatrefoil-01', name: 'Quatrefoil', category: 'main', roles: ['primary','accent'], body: '<path fill="{{primary}}" d="M50 7C61 7 69 16 69 27c11 0 20 9 20 20s-9 20-20 20c0 11-8 20-19 20s-19-9-19-20c-11 0-20-9-20-20s9-20 20-20C31 16 39 7 50 7Z"/><path fill="{{accent}}" d="M50 31 67 48 50 65 33 48Z"/>' },
@@ -31,7 +23,7 @@ export const LUXURY_MOTIFS: LuxuryMotif[] = [
 export const MAIN_LUXURY_MOTIFS = LUXURY_MOTIFS.filter((item) => item.category === 'main')
 export const FILLER_LUXURY_MOTIFS = LUXURY_MOTIFS.filter((item) => item.category === 'filler')
 
-export function resolveLuxuryMotif(id: string, customShapes: LuxuryCustomShape[] = []): LuxuryMotif {
+export function resolveLuxuryMotif(id: string, customShapes: LuxuryReusableShape[] = []): LuxuryMotif {
   const custom = customShapes.find((item) => item.id === id)
   if (custom) return custom
   return LUXURY_MOTIFS.find((item) => item.id === id) ?? LUXURY_MOTIFS[0]
