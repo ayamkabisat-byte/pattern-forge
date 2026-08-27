@@ -11,6 +11,7 @@ import {
   isFreePlacement,
 } from '../engine/builder'
 import { buildComposerSvg } from '../engine/composerExport'
+import { sanitizeEmbeddedComposerData } from '../engine/multiMotifProject'
 import { buildRepeatProofSvg } from '../engine/proofExport'
 import { parseSvgAsset } from '../engine/svg'
 import { savePatternAsset } from '../patternLibrary'
@@ -272,15 +273,16 @@ export default function MultiMotifComposer() {
     try {
       const parsed = JSON.parse(await file.text()) as ProjectFile
       if (parsed.patternForge !== 'multi-motif-project' || parsed.version !== 1 || !Array.isArray(parsed.assets) || !Array.isArray(parsed.placements)) throw new Error('Not a valid PatternForge Multi-Motif project.')
+      const sanitized = await sanitizeEmbeddedComposerData(parsed.assets, parsed.placements)
       setName(parsed.name || 'Multi Motif Pattern')
       setOutputMode(parsed.outputMode === 'canvas' ? 'canvas' : 'seamless')
       setSettings({ ...INITIAL, ...parsed.settings })
-      setAssets(parsed.assets)
-      setPlacements(parsed.placements)
-      setActiveAssetId(parsed.assets[0]?.id ?? null)
-      setSelectedKey(parsed.placements[0]?.key ?? null)
+      setAssets(sanitized.assets)
+      setPlacements(sanitized.placements)
+      setActiveAssetId(sanitized.assets[0]?.id ?? null)
+      setSelectedKey(sanitized.placements[0]?.key ?? null)
       setExportLongSide(Math.max(256, Math.min(20000, parsed.exportLongSide || 4096)))
-      setMessage(`${file.name} reopened as an editable Multi-Motif project.`)
+      setMessage(`${file.name} reopened after sanitizing ${sanitized.assets.length} embedded SVG asset${sanitized.assets.length === 1 ? '' : 's'} and remapping their placements.`)
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not import project JSON.') }
   }
 
