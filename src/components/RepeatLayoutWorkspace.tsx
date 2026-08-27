@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildSvg, generatePattern, patternGeometry } from '../engine/pattern'
-import { buildTileSetSvg, normalizeTileSetConfig, type TileSetConfig, type TileSetStrategy } from '../engine/repeatTileSet'
+import { buildTileSetSvg, normalizeTileSetConfig, remapTileSetConfigAfterAssetRemoval, type TileSetConfig, type TileSetStrategy } from '../engine/repeatTileSet'
 import { buildRepeatProofSvg } from '../engine/proofExport'
 import { parseSvgAsset } from '../engine/svg'
 import { SPACING_PRESETS } from '../exportPresets'
@@ -191,9 +191,20 @@ export default function RepeatLayoutWorkspace({ onOpenLibrary, onOpenPixel }: Pr
 
   function removeAsset(id: string) {
     const index = assets.findIndex((asset) => asset.id === id)
+    if (index < 0) return
+    const oldCount = assets.length
+    const nextCount = Math.max(0, oldCount - 1)
+    const fallbackActiveId = assets.find((asset) => asset.id !== id)?.id ?? null
+    setTileSet((current) => remapTileSetConfigAfterAssetRemoval({ ...current, mode }, index, oldCount))
     setAssets((items) => items.filter((asset) => asset.id !== id))
-    if (activeAssetId === id) setActiveAssetId(assets.find((asset) => asset.id !== id)?.id ?? null)
-    setActiveMatrixAsset((current) => Math.max(0, current > index ? current - 1 : Math.min(current, Math.max(0, assets.length - 2))))
+    if (activeAssetId === id) setActiveAssetId(fallbackActiveId)
+    setActiveMatrixAsset((current) => {
+      if (!nextCount) return 0
+      if (current === index) return Math.min(index, nextCount - 1)
+      if (current > index) return current - 1
+      return Math.min(current, nextCount - 1)
+    })
+    setMessage(nextCount ? `Removed source tile. Existing Custom Matrix cells were remapped by tile identity; ${nextCount} source tile${nextCount === 1 ? '' : 's'} remain.` : 'All source tiles removed.')
   }
 
   useEffect(() => {
