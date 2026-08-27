@@ -26,6 +26,7 @@ export type TileSetResult = {
 const CELL = 1000
 const esc = (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
 const mod = (value: number, size: number) => ((value % size) + size) % size
+const nextEven = (value: number) => value % 2 === 0 ? value : value < 12 ? value + 1 : value - 1
 
 function mulberry32(seed: number) {
   return () => {
@@ -48,9 +49,10 @@ function weightedPick(rand: () => number, weights: number[], count: number) {
 }
 
 export function normalizeTileSetConfig(config: TileSetConfig, assetCount: number): TileSetConfig {
-  const columns = Math.max(1, Math.min(12, Math.round(config.columns || 1)))
+  let columns = Math.max(1, Math.min(12, Math.round(config.columns || 1)))
   let rows = Math.max(1, Math.min(12, Math.round(config.rows || 1)))
-  if (config.mode === 'hex-row' && rows % 2 !== 0) rows = Math.min(12, rows + 1)
+  if ((config.mode === 'brick-row' || config.mode === 'hex-row') && rows % 2 !== 0) rows = nextEven(rows)
+  if (config.mode === 'brick-column' && columns % 2 !== 0) columns = nextEven(columns)
   const count = Math.max(1, assetCount)
   const customMatrix = Array.from({ length: columns * rows }, (_, index) => mod(Math.round(config.customMatrix[index] ?? index), count))
   const weights = Array.from({ length: count }, (_, index) => Math.max(0.01, Number(config.weights[index]) || 1))
