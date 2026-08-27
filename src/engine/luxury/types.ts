@@ -1,5 +1,9 @@
 export type MonogramLayout = 'grid' | 'brick' | 'diagonal' | 'diamond'
 export type AlternateRotation = 'none' | '180' | '90'
+export type LuxuryGeometryPreset = 'legacy' | 'square-lattice' | 'diamond-lattice' | 'wide-rhombus' | 'tall-rhombus' | 'trellis' | 'offset-trellis' | 'cross-lattice'
+export type LuxuryMainAnchor = 'origin' | 'cell-center' | 'edge-x' | 'edge-y' | 'alternate'
+export type LuxuryFillerAnchor = 'cell-center' | 'edge-x' | 'edge-y' | 'alternate-cells' | 'four-corners'
+export type LuxurySymmetry = 'none' | 'mirror-x' | 'mirror-y' | 'mirror-xy' | 'half-turn' | 'quarter-turn' | 'glide'
 export type LuxuryShapeCategory = 'main' | 'filler' | 'border' | 'corner' | 'medallion' | 'strip'
 
 export type LuxuryReusableShape = {
@@ -28,7 +32,7 @@ export type LuxuryMotifInstance = {
 }
 
 export type LuxuryMonogramData = {
-  version: 1
+  version: 1 | 2
   tileWidth: number
   tileHeight: number
   layout: MonogramLayout
@@ -46,6 +50,15 @@ export type LuxuryMonogramData = {
   backgroundColor: number
   exportLongSide: number
   customShapes?: LuxuryReusableShape[]
+
+  geometryPreset?: LuxuryGeometryPreset
+  rowPhase?: number
+  columnPhase?: number
+  mainAnchor?: LuxuryMainAnchor
+  fillerAnchor?: LuxuryFillerAnchor
+  symmetry?: LuxurySymmetry
+  alternateMainScale?: number
+  alternateFillerScale?: number
 }
 
 export type ScarfCenterMode = 'empty' | 'pattern' | 'sparse-pattern' | 'medallion' | 'pattern-medallion'
