@@ -8,17 +8,19 @@ import MyPatternLibraryV111 from './components/MyPatternLibraryV111'
 import PixelPatternBuilder from './components/PixelPatternBuilder'
 import PlaidTartanMaker from './components/PlaidTartanMaker'
 import RepeatLayoutWorkspace from './components/RepeatLayoutWorkspace'
+import ScatteredTemplateWorkspace from './components/ScatteredTemplateWorkspace'
 import SeamlessWorkspace from './components/SeamlessWorkspace'
 import WovenTextileWorkspace from './components/WovenTextileWorkspace'
 import { patternAssetToSvg, setPendingPattern, type PatternAsset, type PatternTarget } from './patternLibrary'
 
 const ScarfStudioWorkspace = lazy(() => import('./components/ScarfStudioWorkspace'))
 
-type Workspace = 'seamless' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'directional' | 'camouflage' | 'luxury' | 'scarf' | 'library' | 'legacy'
+type Workspace = 'seamless' | 'scatter' | 'guides' | 'plaid' | 'textile' | 'pixel' | 'repeat' | 'directional' | 'camouflage' | 'luxury' | 'scarf' | 'library' | 'legacy'
 
 function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange: (workspace: Workspace) => void }) {
   const items: Array<{ id: Workspace; label: string; hint: string }> = [
     { id: 'seamless', label: 'Seamless', hint: 'Freeform · Multi-SVG' },
+    { id: 'scatter', label: 'Scattered', hint: 'Natural · Templates' },
     { id: 'guides', label: 'Layout Guides', hint: 'Frame · Strip · Diagonal' },
     { id: 'plaid', label: 'Plaid / Tartan', hint: 'Template + HEX' },
     { id: 'textile', label: 'Woven / Textile', hint: 'Templates · Custom SVG' },
@@ -31,7 +33,7 @@ function WorkspaceNav({ workspace, onChange }: { workspace: Workspace; onChange:
     { id: 'library', label: 'My Patterns', hint: 'Master + motifs' },
     { id: 'legacy', label: 'Legacy', hint: 'Old experiments' },
   ]
-  return <nav className="v10-global-nav v11-global-nav"><div className="v10-nav-brand"><span>PF</span><div><b>PatternForge</b><small>v1.9 Preview</small></div></div><div className="v10-nav-tabs">{items.map((item) => <button key={item.id} className={workspace === item.id ? 'active' : ''} onClick={() => onChange(item.id)}><b>{item.label}</b><span>{item.hint}</span></button>)}</div><div className="v10-nav-rule">Build · compose · repeat · reuse.</div></nav>
+  return <nav className="v10-global-nav v11-global-nav"><div className="v10-nav-brand"><span>PF</span><div><b>PatternForge</b><small>v2.0 Preview</small></div></div><div className="v10-nav-tabs">{items.map((item) => <button key={item.id} className={workspace === item.id ? 'active' : ''} onClick={() => onChange(item.id)}><b>{item.label}</b><span>{item.hint}</span></button>)}</div><div className="v10-nav-rule">Build · compose · repeat · reuse.</div></nav>
 }
 
 function WorkspaceLoader() {
@@ -69,6 +71,7 @@ export default function AppV10() {
 
   return <div className="v10-root"><WorkspaceNav workspace={workspace} onChange={setWorkspace}/>
     {workspace === 'seamless' ? <SeamlessWorkspace onOpenRepeat={() => setWorkspace('repeat')}/> : null}
+    {workspace === 'scatter' ? <ScatteredTemplateWorkspace onOpenLibrary={() => setWorkspace('library')}/> : null}
     {workspace === 'guides' ? <LayoutGuideBuilder onOpenSeamless={() => setWorkspace('seamless')} onOpenPlaid={() => setWorkspace('plaid')}/> : null}
     {workspace === 'plaid' ? <PlaidTartanMaker onOpenSeamless={() => setWorkspace('seamless')} onOpenGuides={() => setWorkspace('guides')}/> : null}
     {workspace === 'textile' ? <WovenTextileWorkspace onOpenSeamless={() => setWorkspace('seamless')} onOpenGuides={() => setWorkspace('guides')} onOpenPlaid={() => setWorkspace('plaid')}/> : null}
