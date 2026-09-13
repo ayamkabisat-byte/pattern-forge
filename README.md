@@ -98,6 +98,10 @@ Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING
 
 Useful contribution areas include repeat-math regression cases, SVG import hardening, export correctness, accessibility, performance, documentation, and small isolated improvements to individual workspaces.
 
+## License
+
+PatternForge is open-source software released under the [MIT License](LICENSE).
+
 ## Maintenance
 
 PatternForge is under active development. Changes are intentionally kept reviewable through focused branches / pull requests, production builds, and repeat-specific verification before they are merged into the active app.
